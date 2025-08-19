@@ -454,8 +454,15 @@ def _(data_with_info, grouping_dropdown, pl):
         color_field = 'Kategori'
         color_title = 'Truethetskategori'
     
-        # Define explicit sort order for conservation categories (most to least threatened)
-        kategori_order = ['CR', 'EN', 'VU', 'NT', 'LC', 'DD', 'NE']
+        # Define explicit sort order for all possible categories
+        # Norwegian Red List categories (IUCN)
+        redlist_order = ['CR', 'EN', 'VU', 'NT', 'LC', 'DD', 'NE']
+    
+        # Alien species risk categories (Fremmede arter)
+        alien_order = ['SE', 'HI', 'PH', 'LO', 'NK']
+    
+        # Combined order: Red list first (most to least threatened), then alien species (highest to lowest risk)
+        kategori_order = redlist_order + alien_order
     
         # Create a mapping for sort priority
         kategori_priority = {cat: i for i, cat in enumerate(kategori_order)}
@@ -527,6 +534,7 @@ def _(data_with_info, grouping_dropdown, pl):
     return (
         color_field,
         color_title,
+        kategori_order,
         sort_field,
         sorted_data,
         species_order,
@@ -540,48 +548,59 @@ def _(
     color_field,
     color_title,
     grouping_dropdown,
+    kategori_order,
     sorted_data,
     unique_groups,
 ):
     # Cell 4: Define color schemes
     # Define color schemes based on grouping type
     if grouping_dropdown.value == "Art (kategori)":
-        # Threat-based color scheme for conservation status
+        # Combined color scheme for both Red List and alien species
         kategori_colors = {
-            'CR': '#d62728',  # Critically Endangered - Red
+            # Red List categories (threat-based colors)
+            'CR': '#d62728',  # Critically Endangered - Dark Red
             'EN': '#ff7f0e',  # Endangered - Orange
             'VU': '#ffbb78',  # Vulnerable - Light Orange
             'NT': '#aec7e8',  # Near Threatened - Light Blue
             'LC': '#2ca02c',  # Least Concern - Green
             'DD': '#c7c7c7',  # Data Deficient - Gray
-            'NE': '#f7f7f7'   # Not Evaluated - Light Gray
+            'NE': '#f7f7f7',  # Not Evaluated - Light Gray
+        
+            # Alien species categories (risk-based colors)
+            'SE': '#8b0000',  # Severe impact - Dark Red
+            'HI': '#ff1493',  # High impact - Deep Pink
+            'PH': '#ff69b4',  # Potentially high impact - Hot Pink
+            'LO': '#dda0dd',  # Low impact - Plum
+            'NK': '#e6e6fa'   # No known impact - Lavender
         }
     
-        # Map colors to actual categories in data
+        # Use kategori_order from Cell 3 to ensure consistent ordering
+        # kategori_order is already defined in Cell 3
+    
+        # Get actual categories in the data, maintaining the defined order
         actual_categories = sorted_data['Kategori'].unique().to_list()
-        color_domain = []
-        color_range = []
-        for cat in actual_categories:
-            color_domain.append(cat)
-            color_range.append(kategori_colors.get(cat, '#1f77b4'))  # Default blue if not found
+        color_domain = [cat for cat in kategori_order if cat in actual_categories]
+        color_range = [kategori_colors[cat] for cat in color_domain]
     
         color_scale = alt.Scale(domain=color_domain, range=color_range)
+        legend_sort = color_domain  # Explicit sort order for legend
     else:
         # Use default color scheme for Familie and Orden
         color_scale = alt.Scale(scheme='category20' if len(unique_groups) > 10 else 'category10')
+        legend_sort = unique_groups  # Alphabetical order from Cell 3
 
     # Create color encoding with explicit sort order
     color_encoding = alt.Color(
         color_field, 
         title=color_title,
         scale=color_scale,
-        sort=unique_groups,  # Add explicit sort order for legend
+        sort=legend_sort,  # Use explicit sort order for legend
         legend=alt.Legend(orient='right', titleLimit=200)
     )
     return (color_encoding,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     alt,
     color_encoding,
