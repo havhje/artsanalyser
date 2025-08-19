@@ -392,7 +392,7 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    # Cell 1: Create dropdowns
+    # Cell 1: Create dropdowns (unchanged)
     metric_dropdown = mo.ui.dropdown(
         options=["Antall individer", "Antall observasjoner", "Gjennomsnittelig antall individer pr. observasjon"], 
         value="Antall individer",
@@ -402,7 +402,7 @@ def _(mo):
     grouping_dropdown = mo.ui.dropdown(
         options=["Art (kategori)", "Familie", "Orden"], 
         value="Art (kategori)",
-        label="Sorter etter"  # Changed label to reflect sorting behavior
+        label="Sorter etter"
     )
 
     mo.vstack([metric_dropdown, grouping_dropdown])
@@ -411,7 +411,7 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(artsdata_df, metric_dropdown, pl):
-    # Cell 2: Aggregate data by species
+    # Cell 2: Aggregate data by species and calculate group totals
     if metric_dropdown.value == "Antall individer":
         aggregated_data = (
             artsdata_df
@@ -446,30 +446,84 @@ def _(artsdata_df, metric_dropdown, pl):
 
 
 @app.cell(hide_code=True)
-def _(data_with_info, grouping_dropdown):
-    # Cell 3: Sort data based on grouping selection
+def _(data_with_info, grouping_dropdown, pl):
+    # Cell 3: Sort data and calculate group statistics
     # Define sorting field based on dropdown
     if grouping_dropdown.value == "Art (kategori)":
         sort_field = 'Kategori'
         color_field = 'Kategori'
         color_title = 'Truethetskategori'
+    
+        # Define explicit sort order for conservation categories (most to least threatened)
+        kategori_order = ['CR', 'EN', 'VU', 'NT', 'LC', 'DD', 'NE']
+    
+        # Create a mapping for sort priority
+        kategori_priority = {cat: i for i, cat in enumerate(kategori_order)}
+    
+        # Add sort priority column
+        data_with_priority = data_with_info.with_columns(
+            pl.col('Kategori').map_elements(
+                lambda x: kategori_priority.get(x, 999), 
+                return_dtype=pl.Int32
+            ).alias('kategori_priority')
+        )
+    
+        # Sort by category priority first, then by Total within each group
+        sorted_data = data_with_priority.sort(['kategori_priority', 'Total'], descending=[False, True])
+    
+        # Remove the temporary priority column
+        sorted_data = sorted_data.drop('kategori_priority')
+    
     elif grouping_dropdown.value == "Familie":
         sort_field = 'Familie'
         color_field = 'Familie'
         color_title = 'Familie'
+        # Sort alphabetically by Familie, then by Total within each group
+        sorted_data = data_with_info.sort([sort_field, 'Total'], descending=[False, True])
+    
     else:
         sort_field = 'Orden'
         color_field = 'Orden'
         color_title = 'Orden'
+        # Sort alphabetically by Orden, then by Total within each group
+        sorted_data = data_with_info.sort([sort_field, 'Total'], descending=[False, True])
 
-    # Sort by grouping field first, then by Total within each group
-    sorted_data = data_with_info.sort([sort_field, 'Total'], descending=[False, True])
+    # Calculate group totals for annotations
+    group_totals = (
+        sorted_data
+        .group_by(sort_field)
+        .agg([
+            pl.col('Total').sum().alias('GroupTotal'),
+            pl.col('Navn').count().alias('SpeciesCount'),
+            pl.col('Navn').first().alias('FirstSpecies'),  # To position the annotation
+            pl.col('Navn').last().alias('LastSpecies')
+        ])
+    )
+
+    # Add x-position for each species (for separator lines)
+    sorted_data_with_pos = sorted_data.with_columns(
+        pl.arange(0, sorted_data.height).alias('x_position')
+    )
+
+    # Find group boundaries for separator lines
+    group_boundaries = (
+        sorted_data_with_pos
+        .group_by(sort_field)
+        .agg(pl.col('x_position').max().alias('last_position'))
+        .filter(pl.col('last_position') < sorted_data_with_pos.height - 1)  # Exclude last group
+        .with_columns((pl.col('last_position') + 0.5).alias('separator_position'))
+    )
 
     # Create species order for x-axis
     species_order = sorted_data['Navn'].to_list()
 
     # Get unique values for consistent color ordering
-    unique_groups = sorted_data[sort_field].unique().sort().to_list()
+    if grouping_dropdown.value == "Art (kategori)":
+        # Use the explicit order for categories
+        unique_groups = [cat for cat in kategori_order if cat in sorted_data[sort_field].unique()]
+    else:
+        # Use alphabetical order for other groupings
+        unique_groups = sorted_data[sort_field].unique().sort().to_list()
     return (
         color_field,
         color_title,
@@ -485,31 +539,73 @@ def _(
     alt,
     color_field,
     color_title,
+    grouping_dropdown,
+    sorted_data,
+    unique_groups,
+):
+    # Cell 4: Define color schemes
+    # Define color schemes based on grouping type
+    if grouping_dropdown.value == "Art (kategori)":
+        # Threat-based color scheme for conservation status
+        kategori_colors = {
+            'CR': '#d62728',  # Critically Endangered - Red
+            'EN': '#ff7f0e',  # Endangered - Orange
+            'VU': '#ffbb78',  # Vulnerable - Light Orange
+            'NT': '#aec7e8',  # Near Threatened - Light Blue
+            'LC': '#2ca02c',  # Least Concern - Green
+            'DD': '#c7c7c7',  # Data Deficient - Gray
+            'NE': '#f7f7f7'   # Not Evaluated - Light Gray
+        }
+    
+        # Map colors to actual categories in data
+        actual_categories = sorted_data['Kategori'].unique().to_list()
+        color_domain = []
+        color_range = []
+        for cat in actual_categories:
+            color_domain.append(cat)
+            color_range.append(kategori_colors.get(cat, '#1f77b4'))  # Default blue if not found
+    
+        color_scale = alt.Scale(domain=color_domain, range=color_range)
+    else:
+        # Use default color scheme for Familie and Orden
+        color_scale = alt.Scale(scheme='category20' if len(unique_groups) > 10 else 'category10')
+
+    # Create color encoding with explicit sort order
+    color_encoding = alt.Color(
+        color_field, 
+        title=color_title,
+        scale=color_scale,
+        sort=unique_groups,  # Add explicit sort order for legend
+        legend=alt.Legend(orient='right', titleLimit=200)
+    )
+    return (color_encoding,)
+
+
+@app.cell
+def _(
+    alt,
+    color_encoding,
     metric_dropdown,
     mo,
     sort_field,
     sorted_data,
     species_order,
-    unique_groups,
     y_label,
 ):
-    # Cell 4: Create the interactive chart
-    # Create color encoding with consistent ordering
-    color_encoding = alt.Color(
-        color_field, 
-        title=color_title,
-        scale=alt.Scale(domain=unique_groups)
-    )
+    # Cell 5: Create the interactive chart with all improvements
+    # Calculate dynamic bar width based on number of species
+    num_species = sorted_data.height
+    bar_width = max(0.5, min(0.9, 30 / num_species))  # Adjust these values as needed
 
-    # Create the chart
-    chart = (
+    # Base chart with bars
+    bars = (
         alt.Chart(sorted_data)
-        .mark_bar()
+        .mark_bar(width=alt.RelativeBandSize(bar_width))
         .encode(
             x=alt.X('Navn', 
                     title='Art', 
                     sort=species_order,
-                    axis=alt.Axis(labelAngle=-45, labelLimit=200)),
+                    axis=alt.Axis(labelAngle=-45, labelLimit=200, labelOverlap=False)),
             y=alt.Y('Total', title=y_label),
             color=color_encoding,
             tooltip=[
@@ -519,6 +615,17 @@ def _(
                 alt.Tooltip('Familie', title='Familie'),
                 alt.Tooltip('Orden', title='Orden')
             ]
+        )
+    )
+
+
+    # Combine all layers with explicit scale resolution
+    chart = (
+        alt.layer(bars)
+        .resolve_scale(
+            x='shared',
+            y='shared',
+            color='independent'  # This ensures only the color legend from bars is shown
         )
         .properties(
             width=1200, 
