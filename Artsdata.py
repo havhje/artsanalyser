@@ -461,8 +461,11 @@ def _(data_with_info, grouping_dropdown, pl):
         # Alien species risk categories (Fremmede arter)
         alien_order = ['SE', 'HI', 'PH', 'LO', 'NK']
     
-        # Combined order: Red list first (most to least threatened), then alien species (highest to lowest risk)
-        kategori_order = redlist_order + alien_order
+        # Other categories
+        other_order = ['NA', 'Unknown']
+    
+        # Combined order: Red list first (most to least threatened), then alien species (highest to lowest risk), then others
+        kategori_order = redlist_order + alien_order + other_order
     
         # Create a mapping for sort priority
         kategori_priority = {cat: i for i, cat in enumerate(kategori_order)}
@@ -571,7 +574,11 @@ def _(
             'HI': '#ff1493',  # High impact - Deep Pink
             'PH': '#ff69b4',  # Potentially high impact - Hot Pink
             'LO': '#dda0dd',  # Low impact - Plum
-            'NK': '#e6e6fa'   # No known impact - Lavender
+            'NK': '#e6e6fa',  # No known impact - Lavender
+        
+            # Other categories
+            'NA': '#b0b0b0',  # Not Applicable - Medium Gray
+            'Unknown': '#888888'  # Unknown - Dark Gray
         }
     
         # Use kategori_order from Cell 3 to ensure consistent ordering
