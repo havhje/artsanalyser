@@ -16,89 +16,17 @@ def _():
     return alt, ff, mo, pl, px
 
 
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""### Organiserer og transformerer data""")
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""#### Organiserer""")
-    return
-
-
 @app.cell
 def _(mo):
-    original_df = mo.sql(
+    artsdata_df = mo.sql(
         f"""
-        SELECT * FROM '/Users/havardhjermstad-sollerud/Documents/Kodeprosjekter/marimo/Artsdatabanken/inndata/*.csv';
+        SELECT * FROM 'C:/Users/havh/OneDrive - Multiconsult/Dokumenter/Kodeprosjekter/Artsdatabanken/Artsdatabanken/behandlede_data/**/*.csv';
+
+
+
         """
     )
-    return (original_df,)
-
-
-@app.cell
-def _(original_df):
-    dropper_kolonner_df = original_df
-    dropper_kolonner_df = dropper_kolonner_df.select(["category", "validScientificNameId", "validScientificName", "preferredPopularName", "taxonGroupName", "collector", "dateTimeCollected", "locality", "coordinateUncertaintyInMeters", "municipality", "county", "individualCount", "latitude", "longitude", "geometry", "scientificNameRank", "behavior"])
-    return (dropper_kolonner_df,)
-
-
-@app.cell
-def _(dropper_kolonner_df):
-    endrer_navn_df = dropper_kolonner_df
-    endrer_navn_df = endrer_navn_df.rename({"category": "Kategori"})
-    endrer_navn_df = endrer_navn_df.rename({"validScientificName": "Art"})
-    endrer_navn_df = endrer_navn_df.rename({"preferredPopularName": "Navn"})
-    endrer_navn_df = endrer_navn_df.rename({"taxonGroupName": "Artsgruppe"})
-    endrer_navn_df = endrer_navn_df.rename({"validScientificNameId": "Artens ID"})
-    endrer_navn_df = endrer_navn_df.rename({"collector": "Observatør"})
-    endrer_navn_df = endrer_navn_df.rename({"dateTimeCollected": "Observert dato"})
-    endrer_navn_df = endrer_navn_df.rename({"locality": "Lokalitet"})
-    endrer_navn_df = endrer_navn_df.rename({"coordinateUncertaintyInMeters": "Usikkerhet meter"})
-    endrer_navn_df = endrer_navn_df.rename({"municipality": "Kommune"})
-    endrer_navn_df = endrer_navn_df.rename({"county": "Fylke"})
-    endrer_navn_df = endrer_navn_df.rename({"individualCount": "Antall"})
-    endrer_navn_df = endrer_navn_df.rename({"scientificNameRank": "Taksonomisk nivå"})
-    endrer_navn_df = endrer_navn_df.rename({"behavior": "Atferd"})
-    return (endrer_navn_df,)
-
-
-@app.cell
-def _(endrer_navn_df):
-    organisert_df = endrer_navn_df
-    return (organisert_df,)
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""#### Tranformerer""")
-    return
-
-
-@app.cell
-def _(organisert_df, pl):
-    # Setter alle null verdier i observasjoner lik 1
-
-    artsdata_df1 = organisert_df.with_columns(
-        pl.col("Antall").fill_null(0))
-    return (artsdata_df1,)
-
-
-@app.cell
-def _(artsdata_df1, pl):
-    # Endrer fra komma til punktum seperasjon i lengdegrad og breddegrad
-
-    artsdata_df = artsdata_df1.with_columns(
-        pl.col(["latitude", "longitude"]).str.replace_all(",", ".").cast(pl.Float64)
-    )
     return (artsdata_df,)
-
-
-@app.cell
-def _():
-    return
 
 
 @app.cell(hide_code=True)
@@ -458,106 +386,157 @@ def _(artsdata_figurer_df):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
-    #### Antall
-
-    """
-    )
+    mo.md(r"""#### Antall""")
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    dropdown_figurer = mo.ui.dropdown(options=["Antall individer", "Antall observasjoner", "Gjennomsnittelig antall individer pr. observasjon"], label="Select metric")
-    dropdown_figurer
-    return (dropdown_figurer,)
+    # Cell 1: Create dropdowns
+    metric_dropdown = mo.ui.dropdown(
+        options=["Antall individer", "Antall observasjoner", "Gjennomsnittelig antall individer pr. observasjon"], 
+        value="Antall individer",
+        label="Velg metrikk"
+    )
+
+    grouping_dropdown = mo.ui.dropdown(
+        options=["Art (kategori)", "Familie", "Orden"], 
+        value="Art (kategori)",
+        label="Sorter etter"  # Changed label to reflect sorting behavior
+    )
+
+    mo.vstack([metric_dropdown, grouping_dropdown])
+    return grouping_dropdown, metric_dropdown
 
 
 @app.cell(hide_code=True)
-def _(artsdata_fg, dropdown_figurer, pl):
-    # Calculate based on dropdown selection
-    if dropdown_figurer.value == "Antall individer":
-        # Sum of individuals per species
-        result = (
-            artsdata_fg
+def _(artsdata_df, metric_dropdown, pl):
+    # Cell 2: Aggregate data by species
+    if metric_dropdown.value == "Antall individer":
+        aggregated_data = (
+            artsdata_df
             .group_by('Navn')
             .agg(pl.col('Antall').sum().alias('Total'))
         )
         y_label = "Antall individer"
-    elif dropdown_figurer.value == "Antall observasjoner":
-        # Count of observations per species
-        result = (
-            artsdata_fg
+    elif metric_dropdown.value == "Antall observasjoner":
+        aggregated_data = (
+            artsdata_df
             .group_by('Navn')
             .agg(pl.len().alias('Total'))
         )
         y_label = "Antall observasjoner"
-    else:  # "Gjennomsnittelig antall individer pr. observasjon"
-        # Average individuals per observation
-        result = (
-            artsdata_fg
+    else:
+        aggregated_data = (
+            artsdata_df
             .group_by('Navn')
             .agg(pl.col('Antall').mean().alias('Total'))
         )
         y_label = "Gjennomsnitt individer per observasjon"
 
-    return result, y_label
-
-
-@app.cell
-def _(alt, artsdata_fg, mo, pl, result, y_label):
-    #Når du aggregerer dataene i cellen over, så tar du bare ut art og antall. Ikke noe av de andre kolonnene, må hente dette inn igjen. 
-
-    # Henter kategori for de ulike artene 
-    species_categories = (
-        artsdata_fg
-        .select(['Navn', 'Kategori'])
+    # Join with species information
+    species_info = (
+        artsdata_df
+        .select(['Navn', 'Kategori', 'Familie', 'Orden'])
         .unique()
     )
 
-    # Join category information to your result
-    result_with_category = result.join(species_categories, on='Navn')
+    data_with_info = aggregated_data.join(species_info, on='Navn')
+    return data_with_info, y_label
 
-    # Define custom category order
-    category_order = ['CR', 'EN', 'VU', 'NT', 'LC', 'NR', 'LO', 'Unknown']
 
-    # Create a sorted dataframe with custom category order
-    sorted_data = (
-        result_with_category
-        # Add a sort key based on category order
-        .with_columns(
-            pl.col('Kategori')
-            .map_elements(lambda x: category_order.index(x) if x in category_order else len(category_order))
-            .alias('category_sort_key')
-        )
-        # Sort by category order, then by Total descending
-        .sort(['category_sort_key', 'Total'], descending=[False, True])
-        .drop('category_sort_key')
-    )
+@app.cell(hide_code=True)
+def _(data_with_info, grouping_dropdown):
+    # Cell 3: Sort data based on grouping selection
+    # Define sorting field based on dropdown
+    if grouping_dropdown.value == "Art (kategori)":
+        sort_field = 'Kategori'
+        color_field = 'Kategori'
+        color_title = 'Truethetskategori'
+    elif grouping_dropdown.value == "Familie":
+        sort_field = 'Familie'
+        color_field = 'Familie'
+        color_title = 'Familie'
+    else:
+        sort_field = 'Orden'
+        color_field = 'Orden'
+        color_title = 'Orden'
 
-    # Create a list of species names in the desired order
+    # Sort by grouping field first, then by Total within each group
+    sorted_data = data_with_info.sort([sort_field, 'Total'], descending=[False, True])
+
+    # Create species order for x-axis
     species_order = sorted_data['Navn'].to_list()
 
-    # Create the chart with custom sort order
-    figur_antall = mo.ui.altair_chart(
-        alt.Chart(result_with_category)
+    # Get unique values for consistent color ordering
+    unique_groups = sorted_data[sort_field].unique().sort().to_list()
+    return (
+        color_field,
+        color_title,
+        sort_field,
+        sorted_data,
+        species_order,
+        unique_groups,
+    )
+
+
+@app.cell(hide_code=True)
+def _(
+    alt,
+    color_field,
+    color_title,
+    metric_dropdown,
+    mo,
+    sort_field,
+    sorted_data,
+    species_order,
+    unique_groups,
+    y_label,
+):
+    # Cell 4: Create the interactive chart
+    # Create color encoding with consistent ordering
+    color_encoding = alt.Color(
+        color_field, 
+        title=color_title,
+        scale=alt.Scale(domain=unique_groups)
+    )
+
+    # Create the chart
+    chart = (
+        alt.Chart(sorted_data)
         .mark_bar()
         .encode(
             x=alt.X('Navn', 
                     title='Art', 
-                    sort=species_order,  # Use custom sort order
-                    axis=alt.Axis(labelAngle=-45)),
+                    sort=species_order,
+                    axis=alt.Axis(labelAngle=-45, labelLimit=200)),
             y=alt.Y('Total', title=y_label),
-            color=alt.Color('Kategori', 
-                           title='Kategori',
-                           scale=alt.Scale(domain=category_order)),  # Also order legend
-            tooltip=['Navn', 'Total', 'Kategori']
+            color=color_encoding,
+            tooltip=[
+                alt.Tooltip('Navn', title='Art'),
+                alt.Tooltip('Total', title=y_label, format='.2f' if 'Gjennomsnitt' in y_label else '.0f'),
+                alt.Tooltip('Kategori', title='Truethetskategori'),
+                alt.Tooltip('Familie', title='Familie'),
+                alt.Tooltip('Orden', title='Orden')
+            ]
         )
-        .properties(width=1500, height=400)
+        .properties(
+            width=1200, 
+            height=500,
+            title=f"{metric_dropdown.value} sortert etter {sort_field.lower()}"
+        )
+        .configure_axis(
+            labelFontSize=11,
+            titleFontSize=12
+        )
+        .configure_title(
+            fontSize=16,
+            anchor='start'
+        )
     )
 
-    figur_antall
+    interactive_chart = mo.ui.altair_chart(chart)
+    interactive_chart
     return
 
 
