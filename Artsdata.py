@@ -408,7 +408,6 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(artsdata_df, metric_dropdown, pl):
-    # Cell 2: Aggregate data by species and calculate group totals
     if metric_dropdown.value == "Antall individer":
         aggregated_data = (
             artsdata_df
@@ -431,10 +430,13 @@ def _(artsdata_df, metric_dropdown, pl):
         )
         y_label = "Gjennomsnitt individer per observasjon"
 
-    # Join with species information
+    # Join with species information - INCLUDING THE SPECIAL CATEGORIES
     species_info = (
         artsdata_df
-        .select(['Navn', 'Kategori', 'Familie', 'Orden'])
+        .select([
+            'Navn', 'Kategori', 'Familie', 'Orden',
+            'Ansvarsarter', 'Andre spesielt hensynskrevende arter', 'Prioriterte arter'
+        ])
         .unique()
     )
 
@@ -610,17 +612,23 @@ def _(
     color_encoding,
     metric_dropdown,
     mo,
+    pl,
     sort_field,
     sorted_data,
     species_order,
     y_label,
 ):
-    # Cell 5: Create the interactive chart with all improvements
+    # --- 1. Initial Setup (similar to your original code) ---
+
     # Calculate dynamic bar width based on number of species
     num_species = sorted_data.height
-    bar_width = max(0.5, min(0.9, 30 / num_species))  # Adjust these values as needed
+    bar_width = max(0.5, min(0.9, 30 / num_species))
 
-    # Base chart with bars
+    # Calculate a base marker offset (e.g., 5% of the max value)
+    max_value = sorted_data['Total'].max()
+    marker_offset = max_value * 0.05 if max_value > 0 else 1
+
+    # Base chart with bars (no changes here)
     bars = (
         alt.Chart(sorted_data)
         .mark_bar(width=alt.RelativeBandSize(bar_width))
@@ -629,27 +637,93 @@ def _(
                     title='Art', 
                     sort=species_order,
                     axis=alt.Axis(labelAngle=-45, labelLimit=200, labelOverlap=False)),
-            y=alt.Y('Total', title=y_label),
+            y=alt.Y('Total', title=y_label, scale=alt.Scale(domain=[0, max_value * 1.2])), # Extend domain to make space
             color=color_encoding,
             tooltip=[
                 alt.Tooltip('Navn', title='Art'),
                 alt.Tooltip('Total', title=y_label, format='.2f' if 'Gjennomsnitt' in y_label else '.0f'),
                 alt.Tooltip('Kategori', title='Truethetskategori'),
                 alt.Tooltip('Familie', title='Familie'),
-                alt.Tooltip('Orden', title='Orden')
+                alt.Tooltip('Orden', title='Orden'),
+                alt.Tooltip('Ansvarsarter', title='Ansvarsart'),
+                alt.Tooltip('Andre spesielt hensynskrevende arter', title='Hensynskrevende'),
+                alt.Tooltip('Prioriterte arter', title='Prioritert')
             ]
         )
     )
 
+    # --- 2. Data Transformation for Markers ---
 
-    # Combine all layers with explicit scale resolution
-    chart = (
-        alt.layer(bars)
-        .resolve_scale(
-            x='shared',
-            y='shared',
-            color='independent'  # This ensures only the color legend from bars is shown
+    # Define the columns that represent marker categories
+    marker_cols = ['Ansvarsarter', 'Andre spesielt hensynskrevende arter', 'Prioriterte arter']
+
+    # Reshape the data from wide to long format for markers
+    # This is the key step for creating a legend automatically
+    marker_data = (
+        sorted_data
+        .filter(pl.any_horizontal(pl.col(c) for c in marker_cols)) # Keep only rows with at least one special status
+        .melt(id_vars=['Navn', 'Total'], value_vars=marker_cols, variable_name='Status', value_name='Is_True')
+        .filter(pl.col('Is_True')) # Keep only the True values
+    )
+
+
+    # --- 3. Create the Improved Marker Layer (Single Black & Hollow Legend) ---
+
+    # Check if there is any marker data to plot
+    if marker_data.height > 0:
+        markers = (
+            alt.Chart(marker_data)
+            .mark_point(
+                size=50,         # A good size for visibility
+                filled=False,     # Makes the markers hollow
+                stroke='black',   # Statically sets the outline color to black for all markers
+                strokeWidth=0.5   # A thicker outline is easier to see
+            )
+            .encode(
+                x=alt.X('Navn:N', sort=species_order),
+                y=alt.Y('y_pos:Q', axis=None), 
+            
+                # --- SHAPE ENCODING ---
+                # This is now the ONLY encoding that will generate a legend for the markers.
+                shape=alt.Shape('Status:N', 
+                                scale=alt.Scale(
+                                    domain=marker_cols, 
+                                    range=['circle', 'square', 'triangle-up']
+                                ),
+                                # Configure the legend title
+                                legend=alt.Legend(title="Spesialstatus")),
+            
+                # The color encoding has been removed!
+            
+                tooltip=[
+                    alt.Tooltip('Navn', title='Art'),
+                    alt.Tooltip('Status', title='Status')
+                ]
+            )
+            .transform_window(
+                # For each species ('Navn'), assign a rank to its statuses for stacking.
+                marker_rank='rank()',
+                groupby=['Navn']
+            )
+            .transform_calculate(
+                # Calculate the y-position to stack markers above the bars.
+                y_pos=f'datum.Total + {marker_offset} * datum.marker_rank'
+            )
         )
+    
+        # Layer the bars and the markers together
+        chart = bars + markers
+    else:
+        # If no marker data exists, just show the bars
+        chart = bars
+
+    # --- 4. Final Chart Configuration ---
+    # Your existing code for this section is fine, but you might want to ensure
+    # the legend symbols are styled correctly. You can add a .configure_legend()
+    # call to be explicit.
+
+    final_chart = (
+        chart
         .properties(
             width=1200, 
             height=500,
@@ -663,9 +737,46 @@ def _(
             fontSize=16,
             anchor='start'
         )
+        .configure_legend(
+            titleFontSize=12,
+            labelFontSize=11,
+            orient='right', # Place legend on the right side
+            # Explicitly make legend symbols hollow with a black outline
+            symbolFillColor='transparent',
+            symbolStrokeColor='black'
+        )
     )
 
-    interactive_chart = mo.ui.altair_chart(chart)
+    interactive_chart = mo.ui.altair_chart(final_chart)
+    interactive_chart
+
+
+    # --- 4. Final Chart Configuration ---
+
+    final_chart = (
+        chart
+        .properties(
+            width=1200, 
+            height=500,
+            title=f"{metric_dropdown.value} sortert etter {sort_field.lower()}"
+        )
+        .configure_axis(
+            labelFontSize=11,
+            titleFontSize=12
+        )
+        .configure_title(
+            fontSize=16,
+            anchor='start'
+        )
+        .configure_legend(
+            titleFontSize=12,
+            labelFontSize=11,
+            orient='right' # Place legend on the right side
+        )
+    )
+
+
+    interactive_chart = mo.ui.altair_chart(final_chart)
     interactive_chart
     return
 
