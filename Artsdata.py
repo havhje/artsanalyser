@@ -407,24 +407,24 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(artsdata_df, metric_dropdown, pl):
+def _(artsdata_fg, metric_dropdown, pl):
     if metric_dropdown.value == "Antall individer":
         aggregated_data = (
-            artsdata_df
+            artsdata_fg
             .group_by('Navn')
             .agg(pl.col('Antall').sum().alias('Total'))
         )
         y_label = "Antall individer"
     elif metric_dropdown.value == "Antall observasjoner":
         aggregated_data = (
-            artsdata_df
+            artsdata_fg
             .group_by('Navn')
             .agg(pl.len().alias('Total'))
         )
         y_label = "Antall observasjoner"
     else:
         aggregated_data = (
-            artsdata_df
+            artsdata_fg
             .group_by('Navn')
             .agg(pl.col('Antall').mean().alias('Total'))
         )
@@ -432,7 +432,7 @@ def _(artsdata_df, metric_dropdown, pl):
 
     # Join with species information - INCLUDING THE SPECIAL CATEGORIES
     species_info = (
-        artsdata_df
+        artsdata_fg
         .select([
             'Navn', 'Kategori', 'Familie', 'Orden',
             'Ansvarsarter', 'Andre spesielt hensynskrevende arter', 'Prioriterte arter'
@@ -451,7 +451,7 @@ def _(data_with_info, grouping_dropdown, pl):
     if grouping_dropdown.value == "Art (kategori)":
         sort_field = 'Kategori'
         color_field = 'Kategori'
-        color_title = 'Truethetskategori'
+        color_title = 'Rødlistekategori'
 
         # Define explicit sort order for all possible categories
         # Norwegian Red List categories (IUCN)
@@ -642,7 +642,7 @@ def _(
             tooltip=[
                 alt.Tooltip('Navn', title='Art'),
                 alt.Tooltip('Total', title=y_label, format='.2f' if 'Gjennomsnitt' in y_label else '.0f'),
-                alt.Tooltip('Kategori', title='Truethetskategori'),
+                alt.Tooltip('Kategori', title='Rødlistestatus'),
                 alt.Tooltip('Familie', title='Familie'),
                 alt.Tooltip('Orden', title='Orden'),
                 alt.Tooltip('Ansvarsarter', title='Ansvarsart'),
@@ -652,17 +652,23 @@ def _(
         )
     )
 
-    # --- 2. Data Transformation for Markers ---
+    # --- 2. Data Transformation for Markers (Corrected) ---
 
     # Define the columns that represent marker categories
     marker_cols = ['Ansvarsarter', 'Andre spesielt hensynskrevende arter', 'Prioriterte arter']
 
     # Reshape the data from wide to long format for markers
     # This is the key step for creating a legend automatically
+    # NOTE: .melt() is replaced with .unpivot() and arguments are updated
     marker_data = (
         sorted_data
         .filter(pl.any_horizontal(pl.col(c) for c in marker_cols)) # Keep only rows with at least one special status
-        .melt(id_vars=['Navn', 'Total'], value_vars=marker_cols, variable_name='Status', value_name='Is_True')
+        .unpivot( # <-- Changed from .melt()
+            index=['Navn', 'Total'],         # <-- Changed from id_vars
+            on=marker_cols,                  # <-- Changed from value_vars
+            variable_name='Status', 
+            value_name='Is_True'
+        )
         .filter(pl.col('Is_True')) # Keep only the True values
     )
 
@@ -691,7 +697,7 @@ def _(
                                     range=['circle', 'square', 'triangle-up']
                                 ),
                                 # Configure the legend title
-                                legend=alt.Legend(title="Spesialstatus")),
+                                legend=alt.Legend(title="Forvaltningsinteresse")),
             
                 # The color encoding has been removed!
             
