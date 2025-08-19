@@ -21,9 +21,6 @@ def _(mo):
     artsdata_df = mo.sql(
         f"""
         SELECT * FROM 'C:/Users/havh/OneDrive - Multiconsult/Dokumenter/Kodeprosjekter/Artsdatabanken/Artsdatabanken/behandlede_data/**/*.csv';
-
-
-
         """
     )
     return (artsdata_df,)
@@ -453,23 +450,23 @@ def _(data_with_info, grouping_dropdown, pl):
         sort_field = 'Kategori'
         color_field = 'Kategori'
         color_title = 'Truethetskategori'
-    
+
         # Define explicit sort order for all possible categories
         # Norwegian Red List categories (IUCN)
-        redlist_order = ['CR', 'EN', 'VU', 'NT', 'LC', 'DD', 'NE']
-    
+        redlist_order = ['CR', 'EN', 'VU', 'NT', 'LC', 'DD', 'NR']
+
         # Alien species risk categories (Fremmede arter)
         alien_order = ['SE', 'HI', 'PH', 'LO', 'NK']
-    
+
         # Other categories
         other_order = ['NA', 'Unknown']
-    
+
         # Combined order: Red list first (most to least threatened), then alien species (highest to lowest risk), then others
         kategori_order = redlist_order + alien_order + other_order
-    
+
         # Create a mapping for sort priority
         kategori_priority = {cat: i for i, cat in enumerate(kategori_order)}
-    
+
         # Add sort priority column
         data_with_priority = data_with_info.with_columns(
             pl.col('Kategori').map_elements(
@@ -477,20 +474,20 @@ def _(data_with_info, grouping_dropdown, pl):
                 return_dtype=pl.Int32
             ).alias('kategori_priority')
         )
-    
+
         # Sort by category priority first, then by Total within each group
         sorted_data = data_with_priority.sort(['kategori_priority', 'Total'], descending=[False, True])
-    
+
         # Remove the temporary priority column
         sorted_data = sorted_data.drop('kategori_priority')
-    
+
     elif grouping_dropdown.value == "Familie":
         sort_field = 'Familie'
         color_field = 'Familie'
         color_title = 'Familie'
         # Sort alphabetically by Familie, then by Total within each group
         sorted_data = data_with_info.sort([sort_field, 'Total'], descending=[False, True])
-    
+
     else:
         sort_field = 'Orden'
         color_field = 'Orden'
@@ -567,28 +564,28 @@ def _(
             'NT': '#aec7e8',  # Near Threatened - Light Blue
             'LC': '#2ca02c',  # Least Concern - Green
             'DD': '#c7c7c7',  # Data Deficient - Gray
-            'NE': '#f7f7f7',  # Not Evaluated - Light Gray
-        
+            'NR': '#f7f7f7',  # Not Evaluated - Light Gray
+
             # Alien species categories (risk-based colors)
             'SE': '#8b0000',  # Severe impact - Dark Red
             'HI': '#ff1493',  # High impact - Deep Pink
             'PH': '#ff69b4',  # Potentially high impact - Hot Pink
             'LO': '#dda0dd',  # Low impact - Plum
             'NK': '#e6e6fa',  # No known impact - Lavender
-        
+
             # Other categories
             'NA': '#b0b0b0',  # Not Applicable - Medium Gray
             'Unknown': '#888888'  # Unknown - Dark Gray
         }
-    
+
         # Use kategori_order from Cell 3 to ensure consistent ordering
         # kategori_order is already defined in Cell 3
-    
+
         # Get actual categories in the data, maintaining the defined order
         actual_categories = sorted_data['Kategori'].unique().to_list()
         color_domain = [cat for cat in kategori_order if cat in actual_categories]
         color_range = [kategori_colors[cat] for cat in color_domain]
-    
+
         color_scale = alt.Scale(domain=color_domain, range=color_range)
         legend_sort = color_domain  # Explicit sort order for legend
     else:
