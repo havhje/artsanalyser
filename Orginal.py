@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.14.17"
-app = marimo.App(width="full", layout_file="layouts/Artsdata.grid.json")
+app = marimo.App(width="full")
 
 
 @app.cell
