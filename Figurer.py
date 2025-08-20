@@ -96,6 +96,14 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
+def _(mo):
+    # Create a checkbox for toggling markers
+    show_markers = mo.ui.checkbox(label="Vis forvaltningsinteresse", value=True)
+    show_markers
+    return (show_markers,)
+
+
+@app.cell(hide_code=True)
 def _(artsdata_fg, metric_dropdown, pl):
     if metric_dropdown.value == "Antall individer":
         aggregated_data = artsdata_fg.group_by("Navn").agg(pl.col("Antall").sum().alias("Total"))
@@ -278,13 +286,14 @@ def _(
     return (color_encoding,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     alt,
     color_encoding,
     metric_dropdown,
     mo,
     pl,
+    show_markers,
     sort_field,
     sorted_data,
     species_order,
@@ -330,59 +339,62 @@ def _(
         )
     )
 
-    # --- 2. Data Transformation for Markers ---
-    marker_cols = ["Ansvarsarter", "Andre spesielt hensynskrevende arter", "Prioriterte arter"]
-
-    marker_data = (
-        sorted_data.filter(
-            pl.any_horizontal(pl.col(c) for c in marker_cols)
-        )
-        .unpivot(
-            index=["Navn", "Total"],
-            on=marker_cols,
-            variable_name="Status",
-            value_name="Is_True",
-        )
-        .filter(pl.col("Is_True"))
-    )
-
-    # --- 3. Create the Improved Marker Layer ---
-    if marker_data.height > 0:
-        markers = (
-            alt.Chart(marker_data)
-            .mark_point(
-                size=50,
-                filled=False,
-                stroke="black",
-                strokeWidth=0.5,
+    # --- 2. Conditionally create and add markers based on checkbox ---
+    if show_markers.value:
+        # Data Transformation for Markers
+        marker_cols = ["Ansvarsarter", "Andre spesielt hensynskrevende arter", "Prioriterte arter"]
+    
+        marker_data = (
+            sorted_data.filter(
+                pl.any_horizontal(pl.col(c) for c in marker_cols)
             )
-            .encode(
-                x=alt.X("Navn:N", sort=species_order),
-                y=alt.Y("y_pos:Q"),  # REMOVED axis=None here
-                shape=alt.Shape(
-                    "Status:N",
-                    scale=alt.Scale(domain=marker_cols, range=["circle", "square", "triangle-up"]),
-                    legend=alt.Legend(title="Forvaltningsinteresse"),
-                ),
-                tooltip=[alt.Tooltip("Navn", title="Art"), alt.Tooltip("Status", title="Status")],
+            .unpivot(
+                index=["Navn", "Total"],
+                on=marker_cols,
+                variable_name="Status",
+                value_name="Is_True",
             )
-            .transform_window(
-                marker_rank="rank()",
-                groupby=["Navn"],
-            )
-            .transform_calculate(
-                y_pos=f"datum.Total + {marker_offset} * datum.marker_rank"
-            )
+            .filter(pl.col("Is_True"))
         )
-
-        # Layer the charts and resolve the Y scale independently
-        chart = alt.layer(bars, markers).resolve_scale(
-            y='shared'  # This ensures the Y-axis from the bars is used
-        )
+    
+        # Create the Improved Marker Layer
+        if marker_data.height > 0:
+            markers = (
+                alt.Chart(marker_data)
+                .mark_point(
+                    size=50,
+                    filled=False,
+                    stroke="black",
+                    strokeWidth=0.5,
+                )
+                .encode(
+                    x=alt.X("Navn:N", sort=species_order),
+                    y=alt.Y("y_pos:Q"),
+                    shape=alt.Shape(
+                        "Status:N",
+                        scale=alt.Scale(domain=marker_cols, range=["circle", "square", "triangle-up"]),
+                        legend=alt.Legend(title="Forvaltningsinteresse"),
+                    ),
+                    tooltip=[alt.Tooltip("Navn", title="Art"), alt.Tooltip("Status", title="Status")],
+                )
+                .transform_window(
+                    marker_rank="rank()",
+                    groupby=["Navn"],
+                )
+                .transform_calculate(
+                    y_pos=f"datum.Total + {marker_offset} * datum.marker_rank"
+                )
+            )
+        
+            # Layer the charts with shared Y-scale
+            chart = alt.layer(bars, markers).resolve_scale(y='shared')
+        else:
+            chart = bars
     else:
+        # If checkbox is unchecked, only show bars
         chart = bars
 
-    # --- 4. Final Chart Configuration ---
+    # --- 3. Final Chart Configuration ---
     final_chart = (
         chart.properties(
             width=1200, 
@@ -397,6 +409,7 @@ def _(
             orient="right",
             symbolFillColor="transparent",
             symbolStrokeColor="black",
+            symbolStrokeWidth=0.1,
         )
     )
 
