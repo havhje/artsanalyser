@@ -68,7 +68,14 @@ def _(mo):
 
 
 @app.cell
-def _():
+def _(artsdata_fg, pl):
+    artsdata_fg_next = (
+        artsdata_fg #Datasettet
+        .group_by("Artsgruppe") #første operasjon grupperer etter artsgruppe
+        .agg(pl.col("Antall").sum().alias("Antall_sum")) # Velger så kolonne for aggregering, så hvilken operasjon og deretter en ny kolonne med denne verdien
+    )
+
+    artsdata_fg_next
     return
 
 
