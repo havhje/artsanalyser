@@ -6,7 +6,6 @@ app = marimo.App(width="medium")
 
 @app.cell(hide_code=True)
 def _():
-    # Cell 1: Setup and imports
     import time
     from functools import lru_cache
     import marimo as mo
@@ -29,11 +28,26 @@ def _():
     )
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
+    valgt_fil = mo.ui.file_browser()
+    valgt_fil
+    return (valgt_fil,)
+
+
+@app.cell(hide_code=True)
+def _(valgt_fil):
+    file_info = valgt_fil.value[0]
+    filepath = file_info.path
+    str(filepath)
+    return (filepath,)
+
+
+@app.cell
+def _(filepath, mo):
     orginal_df = mo.sql(
         f"""
-        SELECT * FROM 'C:/Users/havh/OneDrive - Multiconsult/Dokumenter/Kodeprosjekter/Artsdatabanken/Artsdatabanken/**/*.csv';
+        SELECT * FROM read_csv('{str(filepath)}');
         """
     )
     return (orginal_df,)
@@ -66,7 +80,7 @@ def _(DESIRED_RANKS, NORTAXA_API_BASE_URL, lru_cache, requests):
         """Extract taxonomic hierarchy and rank IDs from API data."""
         hierarchy = {}
         family_id = order_id = None
-    
+
         if api_data and "higherClassification" in api_data:
             for level in api_data["higherClassification"]:
                 rank = level.get("taxonRank")
@@ -76,14 +90,14 @@ def _(DESIRED_RANKS, NORTAXA_API_BASE_URL, lru_cache, requests):
                     family_id = level.get("scientificNameId")
                 elif rank == "Order":
                     order_id = level.get("scientificNameId")
-    
+
         return hierarchy, family_id, order_id
 
     def get_norwegian_name(api_data):
         """Extract Norwegian vernacular name (prioritize Bokmål over Nynorsk)."""
         if not api_data or "vernacularNames" not in api_data:
             return None
-    
+
         names = api_data["vernacularNames"]
         # First try Bokmål
         for name in names:
@@ -97,7 +111,7 @@ def _(DESIRED_RANKS, NORTAXA_API_BASE_URL, lru_cache, requests):
     return extract_hierarchy_and_ids, fetch_taxon_data, get_norwegian_name
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     DESIRED_RANKS,
     RATE_LIMIT_DELAY,
@@ -112,57 +126,57 @@ def _(
         """Process the dataframe and enrich with taxonomy data."""
         # Convert to Polars for better performance
         df_work = pl.from_pandas(source_df.to_pandas() if hasattr(source_df, 'to_pandas') else source_df)
-    
+
         # Check if required column exists
         if "validScientificNameId" not in df_work.columns:
             mo.md("❌ Error: 'validScientificNameId' column not found in input data.")
             return None, None
-    
+
         # Get unique IDs
         unique_ids = df_work.select("validScientificNameId").drop_nulls().unique().to_series().to_list()
         total_ids = len(unique_ids)
-    
+
         # Storage for results
         taxonomy_data = {}
         family_names = {}
         order_names = {}
-    
+
         # Process with progress bar
         with mo.status.progress_bar(total=total_ids) as bar:
             bar.update(0, title="Fetching taxonomy data from NorTaxa API...")
-        
+
             for i, species_id in enumerate(unique_ids):
                 try:
                     species_id = int(species_id)
                 except (ValueError, TypeError):
                     bar.update(i + 1)
                     continue
-            
+
                 # Fetch species data
                 species_data = fetch_taxon_data(species_id)
                 if species_data:
                     hierarchy, family_id, order_id = extract_hierarchy_and_ids(species_data)
                     taxonomy_data[species_id] = hierarchy
-                
+
                     # Fetch family name if available
                     if family_id:
                         family_data = fetch_taxon_data(family_id)
                         if family_data:
                             family_names[species_id] = get_norwegian_name(family_data)
-                
+
                     # Fetch order name if available
                     if order_id:
                         order_data = fetch_taxon_data(order_id)
                         if order_data:
                             order_names[species_id] = get_norwegian_name(order_data)
-            
+
                 # Rate limiting
                 if RATE_LIMIT_DELAY > 0:
                     time.sleep(RATE_LIMIT_DELAY)
-            
+
                 # Update progress
                 bar.update(i + 1, title=f"Processing ID {species_id} ({i+1}/{total_ids})")
-    
+
         # Add taxonomy columns with proper return_dtype
         for rank in DESIRED_RANKS:
             df_work = df_work.with_columns(
@@ -173,7 +187,7 @@ def _(
                 )
                 .alias(rank)
             )
-    
+
         # Add Norwegian names with proper return_dtype
         df_work = df_work.with_columns([
             pl.col("validScientificNameId")
@@ -182,7 +196,7 @@ def _(
                 return_dtype=pl.Utf8  # Fixed: Added return_dtype
             )
             .alias("FamilieNavn"),
-        
+
             pl.col("validScientificNameId")
             .map_elements(
                 lambda x: order_names.get(int(x)) if x and x is not None else None,
@@ -190,7 +204,7 @@ def _(
             )
             .alias("OrdenNavn")
         ])
-    
+
         return df_work, len(taxonomy_data)
     return (process_and_enrich_data,)
 
@@ -214,7 +228,7 @@ def _(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo, pl):
     # Cell 1: Load Excel with criteria
     excel_path = r"C:\Users\havh\OneDrive - Multiconsult\Dokumenter\Kodeprosjekter\Artsdatabanken\Artsdatabanken\Arter av nasjonal forvaltningsinteresse\ArtslisteArtnasjonal_2023_01-31 (1).xlsx"
@@ -226,7 +240,7 @@ def _(mo, pl):
     return criteria_cols, df_excel
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(criteria_cols, df_excel, pl):
     # Cell 2: Process criteria data
     # Convert X marks to Yes/No for each criterion
@@ -398,12 +412,7 @@ def _(lat_lon_ok_df):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
-    ## Eksporter fikset og databehandlet datasett
-
-    """
-    )
+    mo.md(r"""## Eksporter fikset og databehandlet datasett""")
     return
 
 

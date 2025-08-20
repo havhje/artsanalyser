@@ -18,9 +18,24 @@ def _():
 
 @app.cell
 def _(mo):
+    valgt_fil = mo.ui.file_browser()
+    valgt_fil
+    return (valgt_fil,)
+
+
+@app.cell
+def _(valgt_fil):
+    file_info = valgt_fil.value[0]
+    filepath = file_info.path
+    str(filepath)
+    return (filepath,)
+
+
+@app.cell
+def _(filepath, mo):
     artsdata_df = mo.sql(
         f"""
-        SELECT * FROM 'C:/Users/havh/OneDrive - Multiconsult/Dokumenter/Kodeprosjekter/Artsdatabanken/Artsdatabanken/behandlede_data/**/*.csv';
+        SELECT * FROM read_csv('{str(filepath)}');
         """
     )
     return (artsdata_df,)
@@ -688,7 +703,7 @@ def _(
             .encode(
                 x=alt.X('Navn:N', sort=species_order),
                 y=alt.Y('y_pos:Q', axis=None), 
-            
+
                 # --- SHAPE ENCODING ---
                 # This is now the ONLY encoding that will generate a legend for the markers.
                 shape=alt.Shape('Status:N', 
@@ -698,9 +713,9 @@ def _(
                                 ),
                                 # Configure the legend title
                                 legend=alt.Legend(title="Forvaltningsinteresse")),
-            
+
                 # The color encoding has been removed!
-            
+
                 tooltip=[
                     alt.Tooltip('Navn', title='Art'),
                     alt.Tooltip('Status', title='Status')
@@ -716,7 +731,7 @@ def _(
                 y_pos=f'datum.Total + {marker_offset} * datum.marker_rank'
             )
         )
-    
+
         # Layer the bars and the markers together
         chart = bars + markers
     else:
