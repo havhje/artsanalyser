@@ -57,7 +57,24 @@ def _(artsdata_figurer_df):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""#### Antall""")
+    mo.md(r"""### Antall""")
+    return
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""#### Artsgrupper""")
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""####Arter""")
     return
 
 
@@ -261,7 +278,7 @@ def _(
     return (color_encoding,)
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(
     alt,
     color_encoding,
@@ -283,7 +300,7 @@ def _(
     max_value = sorted_data["Total"].max()
     marker_offset = max_value * 0.05 if max_value > 0 else 1
 
-    # Base chart with bars (no changes here)
+    # Base chart with bars
     bars = (
         alt.Chart(sorted_data)
         .mark_bar(width=alt.RelativeBandSize(bar_width))
@@ -295,8 +312,10 @@ def _(
                 axis=alt.Axis(labelAngle=-45, labelLimit=200, labelOverlap=False),
             ),
             y=alt.Y(
-                "Total", title=y_label, scale=alt.Scale(domain=[0, max_value * 1.2])
-            ),  # Extend domain to make space
+                "Total", 
+                title=y_label, 
+                scale=alt.Scale(domain=[0, max_value * 1.2])
+            ),
             color=color_encoding,
             tooltip=[
                 alt.Tooltip("Navn", title="Art"),
@@ -311,102 +330,73 @@ def _(
         )
     )
 
-    # --- 2. Data Transformation for Markers (Corrected) ---
-
-    # Define the columns that represent marker categories
+    # --- 2. Data Transformation for Markers ---
     marker_cols = ["Ansvarsarter", "Andre spesielt hensynskrevende arter", "Prioriterte arter"]
 
-    # Reshape the data from wide to long format for markers
-    # This is the key step for creating a legend automatically
-    # NOTE: .melt() is replaced with .unpivot() and arguments are updated
     marker_data = (
         sorted_data.filter(
             pl.any_horizontal(pl.col(c) for c in marker_cols)
-        )  # Keep only rows with at least one special status
-        .unpivot(  # <-- Changed from .melt()
-            index=["Navn", "Total"],  # <-- Changed from id_vars
-            on=marker_cols,  # <-- Changed from value_vars
+        )
+        .unpivot(
+            index=["Navn", "Total"],
+            on=marker_cols,
             variable_name="Status",
             value_name="Is_True",
         )
-        .filter(pl.col("Is_True"))  # Keep only the True values
+        .filter(pl.col("Is_True"))
     )
 
-    # --- 3. Create the Improved Marker Layer (Single Black & Hollow Legend) ---
-
-    # Check if there is any marker data to plot
+    # --- 3. Create the Improved Marker Layer ---
     if marker_data.height > 0:
         markers = (
             alt.Chart(marker_data)
             .mark_point(
-                size=50,  # A good size for visibility
-                filled=False,  # Makes the markers hollow
-                stroke="black",  # Statically sets the outline color to black for all markers
-                strokeWidth=0.5,  # A thicker outline is easier to see
+                size=50,
+                filled=False,
+                stroke="black",
+                strokeWidth=0.5,
             )
             .encode(
                 x=alt.X("Navn:N", sort=species_order),
-                y=alt.Y("y_pos:Q", axis=None),
-                # --- SHAPE ENCODING ---
-                # This is now the ONLY encoding that will generate a legend for the markers.
+                y=alt.Y("y_pos:Q"),  # REMOVED axis=None here
                 shape=alt.Shape(
                     "Status:N",
                     scale=alt.Scale(domain=marker_cols, range=["circle", "square", "triangle-up"]),
-                    # Configure the legend title
                     legend=alt.Legend(title="Forvaltningsinteresse"),
                 ),
-                # The color encoding has been removed!
                 tooltip=[alt.Tooltip("Navn", title="Art"), alt.Tooltip("Status", title="Status")],
             )
             .transform_window(
-                # For each species ('Navn'), assign a rank to its statuses for stacking.
                 marker_rank="rank()",
                 groupby=["Navn"],
             )
             .transform_calculate(
-                # Calculate the y-position to stack markers above the bars.
                 y_pos=f"datum.Total + {marker_offset} * datum.marker_rank"
             )
         )
 
-        # Layer the bars and the markers together
-        chart = bars + markers
+        # Layer the charts and resolve the Y scale independently
+        chart = alt.layer(bars, markers).resolve_scale(
+            y='shared'  # This ensures the Y-axis from the bars is used
+        )
     else:
-        # If no marker data exists, just show the bars
         chart = bars
 
     # --- 4. Final Chart Configuration ---
-    # Your existing code for this section is fine, but you might want to ensure
-    # the legend symbols are styled correctly. You can add a .configure_legend()
-    # call to be explicit.
-
     final_chart = (
-        chart.properties(width=1200, height=500, title=f"{metric_dropdown.value} sortert etter {sort_field.lower()}")
+        chart.properties(
+            width=1200, 
+            height=500, 
+            title=f"{metric_dropdown.value} sortert etter {sort_field.lower()}"
+        )
         .configure_axis(labelFontSize=11, titleFontSize=12)
         .configure_title(fontSize=16, anchor="start")
         .configure_legend(
             titleFontSize=12,
             labelFontSize=11,
-            orient="right",  # Place legend on the right side
-            # Explicitly make legend symbols hollow with a black outline
+            orient="right",
             symbolFillColor="transparent",
             symbolStrokeColor="black",
-        )
-    )
-
-    interactive_chart = mo.ui.altair_chart(final_chart)
-    interactive_chart
-
-    # --- 4. Final Chart Configuration ---
-
-    final_chart = (
-        chart.properties(width=1200, height=500, title=f"{metric_dropdown.value} sortert etter {sort_field.lower()}")
-        .configure_axis(labelFontSize=11, titleFontSize=12)
-        .configure_title(fontSize=16, anchor="start")
-        .configure_legend(
-            titleFontSize=12,
-            labelFontSize=11,
-            orient="right",  # Place legend on the right side
         )
     )
 
