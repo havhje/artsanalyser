@@ -332,7 +332,7 @@ def _(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo, oppryddet_df, pl):
     # Cell 1: Missing Value Overview
     null_summary = pl.DataFrame({
@@ -350,6 +350,7 @@ def _(mo, oppryddet_df, pl):
         "Usikkerhet meter", 
         "Atferd", 
         "Observatør",
+        "Lokalitet"
     ]
 
     # Add column to indicate if nulls are expected
@@ -363,9 +364,31 @@ def _(mo, oppryddet_df, pl):
     # Filter unexpected nulls
     unexpected_nulls = null_summary_with_status.filter(pl.col("Null Status") == "UNEXPECTED")
 
+    # Get columns with unexpected nulls
+    unexpected_null_columns = unexpected_nulls.get_column("Column").to_list()
+
+    # Create filter expression for rows with any unexpected null
+    if unexpected_null_columns:
+        filter_expr = pl.any_horizontal([pl.col(col).is_null() for col in unexpected_null_columns])
+        rows_with_unexpected_nulls = oppryddet_df.filter(filter_expr)
+    
+        # Select relevant columns for display - avoid duplicates
+        base_columns = ["Art", "Navn"]
+        # Remove any base columns that are already in unexpected_null_columns to avoid duplicates
+        base_columns = [col for col in base_columns if col not in unexpected_null_columns]
+        display_columns = base_columns + unexpected_null_columns
+    
+        # Ensure all columns exist in the dataframe
+        display_columns = [col for col in display_columns if col in oppryddet_df.columns]
+    
+        unexpected_null_sample = rows_with_unexpected_nulls.select(display_columns)
+    else:
+        unexpected_null_sample = pl.DataFrame()
+
     mo.md(f"""
     #### Missing Value Overview
-
+    ### All Missing Values Summary
+    {mo.ui.table(null_summary_with_status, selection=None)}
     Found **{null_summary.height}** columns with missing values out of **{len(oppryddet_df.columns)}** total columns.
 
     ### Unexpected Missing Values
@@ -373,8 +396,12 @@ def _(mo, oppryddet_df, pl):
 
     {mo.ui.table(unexpected_nulls.select(["Column", "Null Count", "Null %"]), selection=None) if unexpected_nulls.height > 0 else "No unexpected null values found!"}
 
-    ### All Missing Values
-    {mo.ui.table(null_summary_with_status, selection=None)}
+    ### Sample Rows with Unexpected Nulls
+    {f"Showing all {rows_with_unexpected_nulls.height} rows with unexpected null values:" if unexpected_null_columns else ""}
+
+    {mo.ui.table(unexpected_null_sample, selection=None) if not unexpected_null_sample.is_empty() else ""}
+
+
     """)
     return
 
@@ -385,12 +412,70 @@ def _(mo):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo, oppryddet_df, pl):
+    # Fikser navn
+
+    # Get columns that have at least one null value
+    columns_with_nulls = oppryddet_df.filter(pl.col("Navn").is_null())
+
+    # Always include "Art" column even if it has no nulls
+    if "Art" not in columns_with_nulls:
+        columns_with_nulls = ["Art"] + columns_with_nulls
+
+    # Filter to only rows that have at least one null value
+    rows_with_nulls = oppryddet_df.filter(
+        pl.any_horizontal([pl.col(col).is_null() for col in oppryddet_df.columns])
+    )
+
+    # Select only the relevant columns
+    filtered_df = rows_with_nulls.select(columns_with_nulls)
+
+    # Create the editor with the filtered data
+    editor = mo.ui.data_editor(
+        data=filtered_df, 
+        label=f"Edit Data - {filtered_df.height} rows with nulls, {len(columns_with_nulls)} columns"
+    )
+    editor
+    return (editor,)
+
+
 @app.cell
-def _(oppryddet_df, pl):
+def _(editor):
+    # This will show the dataframe with your edits
+    edited_df1 = editor.value
+    edited_df1
+    return
+
+
+@app.cell(hide_code=True)
+def _(editor, oppryddet_df, pl):
+    # Get the edited data
+    edited_df = editor.value
+
+    # Create a mapping of Artens ID to edited Navn values
+    navn_updates = edited_df.select(["Artens ID", "Navn"]).filter(pl.col("Navn").is_not_null())
+
+    # Update the original dataframe
+    updated_df = oppryddet_df.join(
+        navn_updates.rename({"Navn": "Navn_new"}),
+        on="Artens ID",
+        how="left"
+    ).with_columns(
+        pl.when(pl.col("Navn_new").is_not_null())
+        .then(pl.col("Navn_new"))
+        .otherwise(pl.col("Navn"))
+        .alias("Navn")
+    ).drop("Navn_new")
+    return (updated_df,)
+
+
+@app.cell
+def _(pl, updated_df):
     # Setter alle null verdier i observasjoner lik 1
 
-    null_verdier_df = oppryddet_df.with_columns(
-        pl.col("Antall").fill_null(0))
+    null_verdier_df = updated_df.with_columns(
+        pl.col("Antall").fill_null(1))
     return (null_verdier_df,)
 
 
