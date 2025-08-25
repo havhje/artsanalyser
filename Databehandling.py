@@ -55,40 +55,20 @@ def _(filepath, mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""## API (legger til data fra Artsdatabanken)""")
+    mo.md(r"""### Oppdatere og rydder i datasettet""")
     return
 
 
 @app.cell
-def _(orginal_df, process_and_enrich_data):
-    # Cell 5: Execute the enrichment
+def _(add_national_interest_criteria, orginal_df, process_and_enrich_data):
+    #Legger til artsdatabanken info
     df_enriched, num_species_processed = process_and_enrich_data(orginal_df)
-    return (df_enriched,)
 
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""## Legger til arter av nasjonal forvaltningsinteresse""")
-    return
-
-
-@app.cell
-def _(add_national_interest_criteria, df_enriched):
+    #Legger til arter av nasjonal forvaltningsinteresse
     df_with_criteria = add_national_interest_criteria(df_enriched)
-    return (df_with_criteria,)
 
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""## Rydder opp i kolonner og navn""")
-    return
-
-
-@app.cell
-def _(df_with_criteria):
+    #Dropper kolonner som ikke er relevante og endrer til norske navn
     oppryddet_df = clean_and_rename_columns(df_with_criteria)
-
-    oppryddet_df
     return (oppryddet_df,)
 
 
@@ -173,12 +153,6 @@ def _(mo, oppryddet_df, pl):
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""### Fikser evt. feil/mangler""")
-    return
-
-
-@app.cell(hide_code=True)
 def _(mo, oppryddet_df, pl):
     # Fikser navn
 
@@ -202,7 +176,14 @@ def _(mo, oppryddet_df, pl):
         data=filtered_df, 
         label=f"Edit Data - {filtered_df.height} rows with nulls, {len(columns_with_nulls)} columns"
     )
+    mo.vstack([
+    mo.md(f""" ####Endrer navn manuelt"""),
     editor
+    
+    ])
+
+
+
     return (editor,)
 
 
@@ -503,7 +484,7 @@ def _(pl):
     return (add_national_interest_criteria,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""### Rydder og fikser navn""")
     return
