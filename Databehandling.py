@@ -1,10 +1,10 @@
 import marimo
 
-__generated_with = "0.14.17"
-app = marimo.App(width="medium")
+__generated_with = "0.15.0"
+app = marimo.App(width="columns")
 
 
-@app.cell(hide_code=True)
+@app.cell(column=0, hide_code=True)
 def _():
     import time
     from functools import lru_cache
@@ -60,166 +60,10 @@ def _(mo):
 
 
 @app.cell
-def _(DESIRED_RANKS, NORTAXA_API_BASE_URL, lru_cache, requests):
-    # Cell 3: API functions with caching
-    @lru_cache(maxsize=10000)
-    def fetch_taxon_data(scientific_name_id):
-        """Fetch taxon data with caching to avoid duplicate API calls."""
-        try:
-            response = requests.get(
-                f"{NORTAXA_API_BASE_URL}/ByScientificNameId/{scientific_name_id}",
-                timeout=10
-            )
-            if response.ok:
-                return response.json()
-        except Exception as e:
-            print(f"Error fetching ID {scientific_name_id}: {e}")
-        return None
-
-    def extract_hierarchy_and_ids(api_data):
-        """Extract taxonomic hierarchy and rank IDs from API data."""
-        hierarchy = {}
-        family_id = order_id = None
-
-        if api_data and "higherClassification" in api_data:
-            for level in api_data["higherClassification"]:
-                rank = level.get("taxonRank")
-                if rank in DESIRED_RANKS:
-                    hierarchy[rank] = level.get("scientificName")
-                if rank == "Family":
-                    family_id = level.get("scientificNameId")
-                elif rank == "Order":
-                    order_id = level.get("scientificNameId")
-
-        return hierarchy, family_id, order_id
-
-    def get_norwegian_name(api_data):
-        """Extract Norwegian vernacular name (prioritize Bokmål over Nynorsk)."""
-        if not api_data or "vernacularNames" not in api_data:
-            return None
-
-        names = api_data["vernacularNames"]
-        # First try Bokmål
-        for name in names:
-            if name.get("languageIsoCode") == "nb":
-                return name.get("vernacularName")
-        # Fallback to Nynorsk
-        for name in names:
-            if name.get("languageIsoCode") == "nn":
-                return name.get("vernacularName")
-        return None
-    return extract_hierarchy_and_ids, fetch_taxon_data, get_norwegian_name
-
-
-@app.cell(hide_code=True)
-def _(
-    DESIRED_RANKS,
-    RATE_LIMIT_DELAY,
-    extract_hierarchy_and_ids,
-    fetch_taxon_data,
-    get_norwegian_name,
-    mo,
-    pl,
-    time,
-):
-    def process_and_enrich_data(source_df):
-        """Process the dataframe and enrich with taxonomy data."""
-        # Convert to Polars for better performance
-        df_work = pl.from_pandas(source_df.to_pandas() if hasattr(source_df, 'to_pandas') else source_df)
-
-        # Check if required column exists
-        if "validScientificNameId" not in df_work.columns:
-            mo.md("❌ Error: 'validScientificNameId' column not found in input data.")
-            return None, None
-
-        # Get unique IDs
-        unique_ids = df_work.select("validScientificNameId").drop_nulls().unique().to_series().to_list()
-        total_ids = len(unique_ids)
-
-        # Storage for results
-        taxonomy_data = {}
-        family_names = {}
-        order_names = {}
-
-        # Process with progress bar
-        with mo.status.progress_bar(total=total_ids) as bar:
-            bar.update(0, title="Fetching taxonomy data from NorTaxa API...")
-
-            for i, species_id in enumerate(unique_ids):
-                try:
-                    species_id = int(species_id)
-                except (ValueError, TypeError):
-                    bar.update(i + 1)
-                    continue
-
-                # Fetch species data
-                species_data = fetch_taxon_data(species_id)
-                if species_data:
-                    hierarchy, family_id, order_id = extract_hierarchy_and_ids(species_data)
-                    taxonomy_data[species_id] = hierarchy
-
-                    # Fetch family name if available
-                    if family_id:
-                        family_data = fetch_taxon_data(family_id)
-                        if family_data:
-                            family_names[species_id] = get_norwegian_name(family_data)
-
-                    # Fetch order name if available
-                    if order_id:
-                        order_data = fetch_taxon_data(order_id)
-                        if order_data:
-                            order_names[species_id] = get_norwegian_name(order_data)
-
-                # Rate limiting
-                if RATE_LIMIT_DELAY > 0:
-                    time.sleep(RATE_LIMIT_DELAY)
-
-                # Update progress
-                bar.update(i + 1, title=f"Processing ID {species_id} ({i+1}/{total_ids})")
-
-        # Add taxonomy columns with proper return_dtype
-        for rank in DESIRED_RANKS:
-            df_work = df_work.with_columns(
-                pl.col("validScientificNameId")
-                .map_elements(
-                    lambda x: taxonomy_data.get(int(x), {}).get(rank) if x and x is not None else None,
-                    return_dtype=pl.Utf8  # Fixed: Added return_dtype
-                )
-                .alias(rank)
-            )
-
-        # Add Norwegian names with proper return_dtype
-        df_work = df_work.with_columns([
-            pl.col("validScientificNameId")
-            .map_elements(
-                lambda x: family_names.get(int(x)) if x and x is not None else None,
-                return_dtype=pl.Utf8  # Fixed: Added return_dtype
-            )
-            .alias("FamilieNavn"),
-
-            pl.col("validScientificNameId")
-            .map_elements(
-                lambda x: order_names.get(int(x)) if x and x is not None else None,
-                return_dtype=pl.Utf8  # Fixed: Added return_dtype
-            )
-            .alias("OrdenNavn")
-        ])
-
-        return df_work, len(taxonomy_data)
-    return (process_and_enrich_data,)
-
-
-@app.cell
 def _(orginal_df, process_and_enrich_data):
     # Cell 5: Execute the enrichment
     df_enriched, num_species_processed = process_and_enrich_data(orginal_df)
     return (df_enriched,)
-
-
-@app.cell
-def _(df_enriched):
-    df_enriched
-    return
 
 
 @app.cell(hide_code=True)
@@ -228,58 +72,10 @@ def _(mo):
     return
 
 
-@app.cell(hide_code=True)
-def _(mo, pl):
-    # Cell 1: Load Excel with criteria
-    excel_path = r"C:\Users\havh\OneDrive - Multiconsult\Dokumenter\Kodeprosjekter\Artsdatabanken\Artsdatabanken\Arter av nasjonal forvaltningsinteresse\ArtslisteArtnasjonal_2023_01-31 (1).xlsx"
-    df_excel = pl.read_excel(excel_path)
-
-    # Get criteria columns (those starting with "Kriterium")
-    criteria_cols = [col for col in df_excel.columns[4:] if col.startswith("Kriterium")]
-    mo.md(f"Found {len(criteria_cols)} criteria columns")
-    return criteria_cols, df_excel
-
-
-@app.cell(hide_code=True)
-def _(criteria_cols, df_excel, pl):
-    # Cell 2: Process criteria data
-    # Convert X marks to Yes/No for each criterion
-    criteria_data = df_excel.select(
-        ["ValidScientificNameId"] + 
-        [pl.when(pl.col(col).str.to_uppercase().str.strip_chars() == "X")
-         .then(pl.lit("Yes"))
-         .otherwise(pl.lit("No"))
-         .alias(col.replace("Kriterium_", "").replace("_", " "))
-         for col in criteria_cols]
-    )
-    criteria_data
-    return (criteria_data,)
-
-
 @app.cell
-def _(criteria_cols, criteria_data, df_enriched, pl):
-    # Cell 3: Merge with enriched data
-    # Left join to keep all rows from df_enriched
-    df_with_criteria = df_enriched.join(
-        criteria_data,
-        left_on="validScientificNameId",
-        right_on="ValidScientificNameId",
-        how="left"
-    )
-
-    # Fill nulls with "No" for non-matched rows
-    criteria_renamed = [col.replace("Kriterium_", "").replace("_", " ") for col in criteria_cols]
-    df_with_criteria = df_with_criteria.with_columns(
-        [pl.col(col).fill_null("No") for col in criteria_renamed]
-    )
+def _(add_national_interest_criteria, df_enriched):
+    df_with_criteria = add_national_interest_criteria(df_enriched)
     return (df_with_criteria,)
-
-
-@app.cell
-def _(df_with_criteria):
-    # Cell 4: Display results
-    df_with_criteria
-    return
 
 
 @app.cell(hide_code=True)
@@ -290,37 +86,7 @@ def _(mo):
 
 @app.cell
 def _(df_with_criteria):
-    dropper_kolonner_df = df_with_criteria
-    dropper_kolonner_df = dropper_kolonner_df.select(["category", "validScientificNameId", "validScientificName", "preferredPopularName", "taxonGroupName", "collector", "dateTimeCollected", "locality", "coordinateUncertaintyInMeters", "municipality", "county", "individualCount", "latitude", "longitude", "geometry", "scientificNameRank", "behavior", "FamilieNavn", "OrdenNavn", "Ansvarsarter", "Andre spesielt hensynskrevende arter", "Spesielle okologiske former", "Prioriterte arter", "Fredete arter", "Fremmede arter"])
-    return (dropper_kolonner_df,)
-
-
-@app.cell
-def _(dropper_kolonner_df):
-    endrer_navn_df = dropper_kolonner_df
-    endrer_navn_df = endrer_navn_df.rename({"category": "Kategori"})
-    endrer_navn_df = endrer_navn_df.rename({"validScientificName": "Art"})
-    endrer_navn_df = endrer_navn_df.rename({"preferredPopularName": "Navn"})
-    endrer_navn_df = endrer_navn_df.rename({"taxonGroupName": "Artsgruppe"})
-    endrer_navn_df = endrer_navn_df.rename({"validScientificNameId": "Artens ID"})
-    endrer_navn_df = endrer_navn_df.rename({"collector": "Observatør"})
-    endrer_navn_df = endrer_navn_df.rename({"dateTimeCollected": "Observert dato"})
-    endrer_navn_df = endrer_navn_df.rename({"locality": "Lokalitet"})
-    endrer_navn_df = endrer_navn_df.rename({"coordinateUncertaintyInMeters": "Usikkerhet meter"})
-    endrer_navn_df = endrer_navn_df.rename({"municipality": "Kommune"})
-    endrer_navn_df = endrer_navn_df.rename({"county": "Fylke"})
-    endrer_navn_df = endrer_navn_df.rename({"individualCount": "Antall"})
-    endrer_navn_df = endrer_navn_df.rename({"scientificNameRank": "Taksonomisk nivå"})
-    endrer_navn_df = endrer_navn_df.rename({"behavior": "Atferd"})
-    endrer_navn_df = endrer_navn_df.rename({"FamilieNavn": "Familie"})
-    endrer_navn_df = endrer_navn_df.rename({"OrdenNavn": "Orden"})
-    endrer_navn_df = endrer_navn_df.rename({"Spesielle okologiske former": "Spesielle økologiske former"})
-    return (endrer_navn_df,)
-
-
-@app.cell
-def _(endrer_navn_df):
-    oppryddet_df=endrer_navn_df
+    oppryddet_df = clean_and_rename_columns(df_with_criteria)
 
     oppryddet_df
     return (oppryddet_df,)
@@ -371,16 +137,16 @@ def _(mo, oppryddet_df, pl):
     if unexpected_null_columns:
         filter_expr = pl.any_horizontal([pl.col(col).is_null() for col in unexpected_null_columns])
         rows_with_unexpected_nulls = oppryddet_df.filter(filter_expr)
-    
+
         # Select relevant columns for display - avoid duplicates
         base_columns = ["Art", "Navn"]
         # Remove any base columns that are already in unexpected_null_columns to avoid duplicates
         base_columns = [col for col in base_columns if col not in unexpected_null_columns]
         display_columns = base_columns + unexpected_null_columns
-    
+
         # Ensure all columns exist in the dataframe
         display_columns = [col for col in display_columns if col in oppryddet_df.columns]
-    
+
         unexpected_null_sample = rows_with_unexpected_nulls.select(display_columns)
     else:
         unexpected_null_sample = pl.DataFrame()
@@ -505,6 +271,299 @@ def _(mo):
 def _(endelig_datasett):
     endelig_datasett
     return
+
+
+@app.cell(column=1, hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    # Utility functions
+
+    """
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""### API fra artsdatabanken""")
+    return
+
+
+@app.cell
+def _(DESIRED_RANKS, NORTAXA_API_BASE_URL, lru_cache, requests):
+    # Henter artsdata via API
+
+    @lru_cache(maxsize=10000)
+    def fetch_taxon_data(scientific_name_id):
+        """Fetch taxon data with caching to avoid duplicate API calls."""
+        try:
+            response = requests.get(
+                f"{NORTAXA_API_BASE_URL}/ByScientificNameId/{scientific_name_id}",
+                timeout=10
+            )
+            if response.ok:
+                return response.json()
+        except Exception as e:
+            print(f"Error fetching ID {scientific_name_id}: {e}")
+        return None
+
+    def extract_hierarchy_and_ids(api_data):
+        """Extract taxonomic hierarchy and rank IDs from API data."""
+        hierarchy = {}
+        family_id = order_id = None
+
+        if api_data and "higherClassification" in api_data:
+            for level in api_data["higherClassification"]:
+                rank = level.get("taxonRank")
+                if rank in DESIRED_RANKS:
+                    hierarchy[rank] = level.get("scientificName")
+                if rank == "Family":
+                    family_id = level.get("scientificNameId")
+                elif rank == "Order":
+                    order_id = level.get("scientificNameId")
+
+        return hierarchy, family_id, order_id
+
+    def get_norwegian_name(api_data):
+        """Extract Norwegian vernacular name (prioritize Bokmål over Nynorsk)."""
+        if not api_data or "vernacularNames" not in api_data:
+            return None
+
+        names = api_data["vernacularNames"]
+        # First try Bokmål
+        for name in names:
+            if name.get("languageIsoCode") == "nb":
+                return name.get("vernacularName")
+        # Fallback to Nynorsk
+        for name in names:
+            if name.get("languageIsoCode") == "nn":
+                return name.get("vernacularName")
+        return None
+    return extract_hierarchy_and_ids, fetch_taxon_data, get_norwegian_name
+
+
+@app.cell
+def _(
+    DESIRED_RANKS,
+    RATE_LIMIT_DELAY,
+    extract_hierarchy_and_ids,
+    fetch_taxon_data,
+    get_norwegian_name,
+    mo,
+    pl,
+    time,
+):
+    def process_and_enrich_data(source_df):
+        """Process the dataframe and enrich with taxonomy data."""
+        # Convert to Polars for better performance
+        df_work = pl.from_pandas(source_df.to_pandas() if hasattr(source_df, 'to_pandas') else source_df)
+
+        # Check if required column exists
+        if "validScientificNameId" not in df_work.columns:
+            mo.md("❌ Error: 'validScientificNameId' column not found in input data.")
+            return None, None
+
+        # Get unique IDs
+        unique_ids = df_work.select("validScientificNameId").drop_nulls().unique().to_series().to_list()
+        total_ids = len(unique_ids)
+
+        # Storage for results
+        taxonomy_data = {}
+        family_names = {}
+        order_names = {}
+
+        # Process with progress bar
+        with mo.status.progress_bar(total=total_ids) as bar:
+            bar.update(0, title="Fetching taxonomy data from NorTaxa API...")
+
+            for i, species_id in enumerate(unique_ids):
+                try:
+                    species_id = int(species_id)
+                except (ValueError, TypeError):
+                    bar.update(i + 1)
+                    continue
+
+                # Fetch species data
+                species_data = fetch_taxon_data(species_id)
+                if species_data:
+                    hierarchy, family_id, order_id = extract_hierarchy_and_ids(species_data)
+                    taxonomy_data[species_id] = hierarchy
+
+                    # Fetch family name if available
+                    if family_id:
+                        family_data = fetch_taxon_data(family_id)
+                        if family_data:
+                            family_names[species_id] = get_norwegian_name(family_data)
+
+                    # Fetch order name if available
+                    if order_id:
+                        order_data = fetch_taxon_data(order_id)
+                        if order_data:
+                            order_names[species_id] = get_norwegian_name(order_data)
+
+                # Rate limiting
+                if RATE_LIMIT_DELAY > 0:
+                    time.sleep(RATE_LIMIT_DELAY)
+
+                # Update progress
+                bar.update(i + 1, title=f"Processing ID {species_id} ({i+1}/{total_ids})")
+
+        # Add taxonomy columns with proper return_dtype
+        for rank in DESIRED_RANKS:
+            df_work = df_work.with_columns(
+                pl.col("validScientificNameId")
+                .map_elements(
+                    lambda x: taxonomy_data.get(int(x), {}).get(rank) if x and x is not None else None,
+                    return_dtype=pl.Utf8  # Fixed: Added return_dtype
+                )
+                .alias(rank)
+            )
+
+        # Add Norwegian names with proper return_dtype
+        df_work = df_work.with_columns([
+            pl.col("validScientificNameId")
+            .map_elements(
+                lambda x: family_names.get(int(x)) if x and x is not None else None,
+                return_dtype=pl.Utf8  # Fixed: Added return_dtype
+            )
+            .alias("FamilieNavn"),
+
+            pl.col("validScientificNameId")
+            .map_elements(
+                lambda x: order_names.get(int(x)) if x and x is not None else None,
+                return_dtype=pl.Utf8  # Fixed: Added return_dtype
+            )
+            .alias("OrdenNavn")
+        ])
+
+        return df_work, len(taxonomy_data)
+    return (process_and_enrich_data,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""### Arter av nasjonal forvaltningsinteresse""")
+    return
+
+
+@app.cell
+def _(pl):
+    def add_national_interest_criteria(df_enriched, excel_path=None):
+        """
+        Add national interest criteria from Excel file to enriched dataframe.
+    
+        Parameters:
+        -----------
+        df_enriched : pl.DataFrame
+            The enriched dataframe with species data
+        excel_path : str, optional
+            Path to the Excel file with criteria. If None, uses default path.
+        
+        Returns:
+        --------
+        pl.DataFrame
+            DataFrame with added criteria columns
+        """
+        # Use default path if not provided
+        if excel_path is None:
+            excel_path = r"C:\Users\havh\OneDrive - Multiconsult\Dokumenter\Kodeprosjekter\Artsdatabanken\Artsdatabanken\Arter av nasjonal forvaltningsinteresse\ArtslisteArtnasjonal_2023_01-31 (1).xlsx"
+    
+        # Load Excel with criteria
+        df_excel = pl.read_excel(excel_path)
+    
+        # Get criteria columns (those starting with "Kriterium")
+        criteria_cols = [col for col in df_excel.columns[4:] if col.startswith("Kriterium")]
+    
+        # Process criteria data - convert X marks to Yes/No
+        criteria_data = df_excel.select(
+            ["ValidScientificNameId"] + 
+            [pl.when(pl.col(col).str.to_uppercase().str.strip_chars() == "X")
+             .then(pl.lit("Yes"))
+             .otherwise(pl.lit("No"))
+             .alias(col.replace("Kriterium_", "").replace("_", " "))
+             for col in criteria_cols]
+        )
+    
+        # Merge with enriched data
+        df_with_criteria = df_enriched.join(
+            criteria_data,
+            left_on="validScientificNameId",
+            right_on="ValidScientificNameId",
+            how="left"
+        )
+    
+        # Fill nulls with "No" for non-matched rows
+        criteria_renamed = [col.replace("Kriterium_", "").replace("_", " ") for col in criteria_cols]
+        df_with_criteria = df_with_criteria.with_columns(
+            [pl.col(col).fill_null("No") for col in criteria_renamed]
+        )
+    
+        return df_with_criteria
+    return (add_national_interest_criteria,)
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""### Rydder og fikser navn""")
+    return
+
+
+@app.function
+def clean_and_rename_columns(df):
+    """
+    Select specific columns and rename them to Norwegian names.
+    
+    Parameters:
+    -----------
+    df : pl.DataFrame
+        Input dataframe with raw column names
+        
+    Returns:
+    --------
+    pl.DataFrame
+        DataFrame with selected and renamed columns
+    """
+    # Define columns to keep
+    columns_to_keep = [
+        "category", "validScientificNameId", "validScientificName", 
+        "preferredPopularName", "taxonGroupName", "collector", 
+        "dateTimeCollected", "locality", "coordinateUncertaintyInMeters", 
+        "municipality", "county", "individualCount", "latitude", 
+        "longitude", "geometry", "scientificNameRank", "behavior", 
+        "FamilieNavn", "OrdenNavn", "Ansvarsarter", 
+        "Andre spesielt hensynskrevende arter", "Spesielle okologiske former", 
+        "Prioriterte arter", "Fredete arter", "Fremmede arter"
+    ]
+    
+    # Define column renaming mapping
+    rename_mapping = {
+        "category": "Kategori",
+        "validScientificName": "Art",
+        "preferredPopularName": "Navn",
+        "taxonGroupName": "Artsgruppe",
+        "validScientificNameId": "Artens ID",
+        "collector": "Observatør",
+        "dateTimeCollected": "Observert dato",
+        "locality": "Lokalitet",
+        "coordinateUncertaintyInMeters": "Usikkerhet meter",
+        "municipality": "Kommune",
+        "county": "Fylke",
+        "individualCount": "Antall",
+        "scientificNameRank": "Taksonomisk nivå",
+        "behavior": "Atferd",
+        "FamilieNavn": "Familie",
+        "OrdenNavn": "Orden",
+        "Spesielle okologiske former": "Spesielle økologiske former"
+    }
+    
+    # Select columns and rename in one operation
+    cleaned_df = (df
+        .select(columns_to_keep)
+        .rename(rename_mapping)
+    )
+    
+    return cleaned_df
 
 
 if __name__ == "__main__":

@@ -404,7 +404,7 @@ def _(
     # --- 3. Final Chart Configuration ---
     final_chart = (
         chart.properties(
-            width=1200, 
+            width=1600, 
             height=500, 
             title=f"{metric_dropdown.value} sortert etter {sort_field.lower()}"
         )

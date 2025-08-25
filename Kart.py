@@ -92,16 +92,47 @@ def _(mo):
     return
 
 
+@app.cell
+def _(mo):
+    mo.md(
+        r"""
+    Ting å huske på
+
+    1. Alle polygoner fra artskart hvor det er knyttet flere arts.obs til blir kollapset til ett enkelt punkt. Slik at et punkt kan ha veldig mange obs.
+    2. Husk at punktene er registrert ofte med stor usikkerhet for fugl/bevegelige dyr - slik at disse blir nesten mer en guideline. Du må se mer til habitat/den strukturelle konnektiviteten
+    """
+    )
+    return
+
+
 @app.cell(hide_code=True)
-def _(artsdata_kart, map_style_dropdown, mo, px, satellite_toggle):
+def _(mo):
+    # Create a dropdown to toggle between Kategori and Navn
+    legend_toggle = mo.ui.dropdown(
+        options=["Kategori", "Navn"],
+        value="Kategori",
+        label="Tegnforklaring:"
+    )
+    legend_toggle
+    return (legend_toggle,)
+
+
+@app.cell(hide_code=True)
+def _(
+    artsdata_kart,
+    legend_toggle,
+    map_style_dropdown,
+    mo,
+    px,
+    satellite_toggle,
+):
     fig = px.scatter_map(
         artsdata_kart,
         lat="latitude",
         lon="longitude",
-        color="Kategori",
-        size="Antall",
-        size_max=100,
+        color=legend_toggle.value,
         zoom=10,
+        size="Antall",
         hover_name="Navn",
     )
 
