@@ -40,7 +40,10 @@ def _(valgt_fil):
 def _(filepath, mo):
     arter_df = mo.sql(
         f"""
-        select * from read_csv('{filepath}')
+        SELECT 
+        * EXCLUDE (Antall),
+        TRY_CAST(Antall AS INTEGER) AS Antall
+        FROM read_csv('{filepath}')
         """
     )
     return (arter_df,)
@@ -245,32 +248,32 @@ def _(artsdata_df):
 
 @app.cell(hide_code=True)
 def _(alt, artsdata_tid, mo, pl):
-    # Group by date and sum the number of individuals
-    individuals_by_date = (
-        artsdata_tid.group_by(pl.col("Observert dato").dt.date().alias("date"))
+    # Group by year and sum the number of individuals
+    individuals_by_year = (
+        artsdata_tid.group_by(pl.col("Observert dato").dt.year().alias("year"))
         .agg(
             [
                 pl.len().alias("observation_count"),  # Using pl.len() as requested
                 pl.col("Antall").sum().alias("individual_count"),  # Sum of individuals
             ]
         )
-        .sort("date")
+        .sort("year")
     )
 
-    # Create the Altair chart for individuals
+    # Create the Altair chart for individuals per year
     chart_tid = (
-        alt.Chart(individuals_by_date)
+        alt.Chart(individuals_by_year)
         .mark_line(point=True)
         .encode(
-            x=alt.X("date:T", title="Dato", axis=alt.Axis(format="%Y")),
+            x=alt.X("year:O", title="År"),
             y=alt.Y("individual_count:Q", title="Antall individer"),
             tooltip=[
-                alt.Tooltip("date:T", title="Dato", format="%d %B %Y"),
+                alt.Tooltip("year:O", title="År"),
                 alt.Tooltip("individual_count:Q", title="Antall individer"),
                 alt.Tooltip("observation_count:Q", title="Antall observasjoner"),
             ],
         )
-        .properties(width=900, height=400, title="Antall individer observert over tid")
+        .properties(width=900, height=400, title="Antall individer observert per år")
         .interactive()
     )
 
@@ -405,23 +408,27 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(artsdata_df, mo):
-    # Husk at du må velge
-    artsdata_figurer_df = mo.ui.table(artsdata_df)
-    artsdata_figurer_df
-    return (artsdata_figurer_df,)
-
-
-@app.cell(hide_code=True)
-def _(artsdata_figurer_df):
-    artsdata_fg = artsdata_figurer_df.value
-    return (artsdata_fg,)
-
-
-@app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""#### Antall""")
-    return
+    # Create a dropdown to select between the two dataframes
+    dataframe_selector = mo.ui.dropdown(
+        options=["Alle arter", "Kun arter i valgte økosystemtyper"],
+        value="Alle arter",  # Default to all species
+        label="Velg datasett:"
+    )
+
+    # Display the selector
+    dataframe_selector
+    return (dataframe_selector,)
+
+
+@app.cell(hide_code=True)
+def _(arter_df, dataframe_selector, okosystem_arter_df):
+    # Assign the selected dataframe to artsdata_fg based on the dropdown value
+    if dataframe_selector.value == "Alle arter":
+        artsdata_fg = arter_df
+    else:
+        artsdata_fg = okosystem_arter_df.value
+    return (artsdata_fg,)
 
 
 @app.cell(hide_code=True)
@@ -439,6 +446,20 @@ def _(mo):
 
     mo.vstack([metric_dropdown, grouping_dropdown])
     return grouping_dropdown, metric_dropdown
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""####Arter""")
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    # Create a checkbox for toggling markers
+    show_markers = mo.ui.checkbox(label="Vis forvaltningsinteresse", value=True)
+    show_markers
+    return (show_markers,)
 
 
 @app.cell(hide_code=True)
@@ -631,6 +652,7 @@ def _(
     metric_dropdown,
     mo,
     pl,
+    show_markers,
     sort_field,
     sorted_data,
     species_order,
@@ -646,7 +668,7 @@ def _(
     max_value = sorted_data["Total"].max()
     marker_offset = max_value * 0.05 if max_value > 0 else 1
 
-    # Base chart with bars (no changes here)
+    # Base chart with bars
     bars = (
         alt.Chart(sorted_data)
         .mark_bar(width=alt.RelativeBandSize(bar_width))
@@ -658,8 +680,10 @@ def _(
                 axis=alt.Axis(labelAngle=-45, labelLimit=200, labelOverlap=False),
             ),
             y=alt.Y(
-                "Total", title=y_label, scale=alt.Scale(domain=[0, max_value * 1.2])
-            ),  # Extend domain to make space
+                "Total", 
+                title=y_label, 
+                scale=alt.Scale(domain=[0, max_value * 1.2])
+            ),
             color=color_encoding,
             tooltip=[
                 alt.Tooltip("Navn", title="Art"),
@@ -674,130 +698,82 @@ def _(
         )
     )
 
-    # --- 2. Data Transformation for Markers (Corrected) ---
+    # --- 2. Conditionally create and add markers based on checkbox ---
+    if show_markers.value:
+        # Data Transformation for Markers
+        marker_cols = ["Ansvarsarter", "Andre spesielt hensynskrevende arter", "Prioriterte arter"]
 
-    # Define the columns that represent marker categories
-    marker_cols = ["Ansvarsarter", "Andre spesielt hensynskrevende arter", "Prioriterte arter"]
-
-    # Reshape the data from wide to long format for markers
-    # This is the key step for creating a legend automatically
-    # NOTE: .melt() is replaced with .unpivot() and arguments are updated
-    marker_data = (
-        sorted_data.filter(
-            pl.any_horizontal(pl.col(c) for c in marker_cols)
-        )  # Keep only rows with at least one special status
-        .unpivot(  # <-- Changed from .melt()
-            index=["Navn", "Total"],  # <-- Changed from id_vars
-            on=marker_cols,  # <-- Changed from value_vars
-            variable_name="Status",
-            value_name="Is_True",
-        )
-        .filter(pl.col("Is_True"))  # Keep only the True values
-    )
-
-    # --- 3. Create the Improved Marker Layer (Single Black & Hollow Legend) ---
-
-    # Check if there is any marker data to plot
-    if marker_data.height > 0:
-        markers = (
-            alt.Chart(marker_data)
-            .mark_point(
-                size=50,  # A good size for visibility
-                filled=False,  # Makes the markers hollow
-                stroke="black",  # Statically sets the outline color to black for all markers
-                strokeWidth=0.5,  # A thicker outline is easier to see
+        marker_data = (
+            sorted_data.filter(
+                pl.any_horizontal(pl.col(c) for c in marker_cols)
             )
-            .encode(
-                x=alt.X("Navn:N", sort=species_order),
-                y=alt.Y("y_pos:Q", axis=None),
-                # --- SHAPE ENCODING ---
-                # This is now the ONLY encoding that will generate a legend for the markers.
-                shape=alt.Shape(
-                    "Status:N",
-                    scale=alt.Scale(domain=marker_cols, range=["circle", "square", "triangle-up"]),
-                    # Configure the legend title
-                    legend=alt.Legend(title="Forvaltningsinteresse"),
-                ),
-                # The color encoding has been removed!
-                tooltip=[alt.Tooltip("Navn", title="Art"), alt.Tooltip("Status", title="Status")],
+            .unpivot(
+                index=["Navn", "Total"],
+                on=marker_cols,
+                variable_name="Status",
+                value_name="Is_True",
             )
-            .transform_window(
-                # For each species ('Navn'), assign a rank to its statuses for stacking.
-                marker_rank="rank()",
-                groupby=["Navn"],
-            )
-            .transform_calculate(
-                # Calculate the y-position to stack markers above the bars.
-                y_pos=f"datum.Total + {marker_offset} * datum.marker_rank"
-            )
+            .filter(pl.col("Is_True"))
         )
 
-        # Layer the bars and the markers together
-        chart = bars + markers
+        # Create the Improved Marker Layer
+        if marker_data.height > 0:
+            markers = (
+                alt.Chart(marker_data)
+                .mark_point(
+                    size=50,
+                    filled=False,
+                    stroke="black",
+                    strokeWidth=0.5,
+                )
+                .encode(
+                    x=alt.X("Navn:N", sort=species_order),
+                    y=alt.Y("y_pos:Q"),
+                    shape=alt.Shape(
+                        "Status:N",
+                        scale=alt.Scale(domain=marker_cols, range=["circle", "square", "triangle-up"]),
+                        legend=alt.Legend(title="Forvaltningsinteresse"),
+                    ),
+                    tooltip=[alt.Tooltip("Navn", title="Art"), alt.Tooltip("Status", title="Status")],
+                )
+                .transform_window(
+                    marker_rank="rank()",
+                    groupby=["Navn"],
+                )
+                .transform_calculate(
+                    y_pos=f"datum.Total + {marker_offset} * datum.marker_rank"
+                )
+            )
+
+            # Layer the charts with shared Y-scale
+            chart = alt.layer(bars, markers).resolve_scale(y='shared')
+        else:
+            chart = bars
     else:
-        # If no marker data exists, just show the bars
+        # If checkbox is unchecked, only show bars
         chart = bars
 
-    # --- 4. Final Chart Configuration ---
-    # Your existing code for this section is fine, but you might want to ensure
-    # the legend symbols are styled correctly. You can add a .configure_legend()
-    # call to be explicit.
-
+    # --- 3. Final Chart Configuration ---
     final_chart = (
-        chart.properties(width=1200, height=500, title=f"{metric_dropdown.value} sortert etter {sort_field.lower()}")
+        chart.properties(
+            width=1600, 
+            height=500, 
+            title=f"{metric_dropdown.value} sortert etter {sort_field.lower()}"
+        )
         .configure_axis(labelFontSize=11, titleFontSize=12)
         .configure_title(fontSize=16, anchor="start")
         .configure_legend(
             titleFontSize=12,
             labelFontSize=11,
-            orient="right",  # Place legend on the right side
-            # Explicitly make legend symbols hollow with a black outline
+            orient="right",
             symbolFillColor="transparent",
             symbolStrokeColor="black",
+            symbolStrokeWidth=0.1,
         )
     )
 
     interactive_chart = mo.ui.altair_chart(final_chart)
     interactive_chart
-
-    # --- 4. Final Chart Configuration ---
-
-    final_chart = (
-        chart.properties(width=1200, height=500, title=f"{metric_dropdown.value} sortert etter {sort_field.lower()}")
-        .configure_axis(labelFontSize=11, titleFontSize=12)
-        .configure_title(fontSize=16, anchor="start")
-        .configure_legend(
-            titleFontSize=12,
-            labelFontSize=11,
-            orient="right",  # Place legend on the right side
-        )
-    )
-
-    interactive_chart = mo.ui.altair_chart(final_chart)
-    interactive_chart
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""#### Atferd""")
-    return
-
-
-@app.cell(hide_code=True)
-def _(alt, artsdata_fg, mo):
-    figur_atferd = mo.ui.altair_chart(
-        alt.Chart(artsdata_fg)
-        .mark_bar()
-        .encode(x="Navn", y="Antall", color="Atferd", tooltip=["Navn", "Antall", "Atferd"])
-        .properties(width=1500, height=400)
-    )
-    return (figur_atferd,)
-
-
-@app.cell(hide_code=True)
-def _(figur_atferd, mo):
-    mo.vstack([figur_atferd, mo.ui.table(figur_atferd.value)])
     return
 
 
@@ -1030,13 +1006,13 @@ def _(mo, requests, service_url, time, xmax, xmin, ymax, ymin):
         service_url, 0, xmin, ymin, xmax, ymax
     )
 
-    mo.md(f"""### Ecosystem Data Download (Envelope Method)
+    mo.md(f"""### Lastet ned data fra økologisk grunnkart
     Downloaded **{len(ecosystem_geojson_envelope["features"])}** ecosystem polygons
     """)
     return (ecosystem_geojson_envelope,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(ecosystem_geojson_envelope, json, tempfile):
     with tempfile.NamedTemporaryFile(mode='w', suffix='.geojson', delete=False) as f:
         json.dump(ecosystem_geojson_envelope, f)
@@ -1044,13 +1020,13 @@ def _(ecosystem_geojson_envelope, json, tempfile):
     return (temp_geojson_path,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(os):
     os.environ['OGR_GEOJSON_MAX_OBJ_SIZE'] = '0'
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo, temp_geojson_path):
     _df = mo.sql(
         f"""
@@ -1064,9 +1040,20 @@ def _(mo, temp_geojson_path):
     return (ecosystems,)
 
 
-@app.cell
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(
+        r"""
+    ### Husk at du filtrerer på økosystemtyper ved å velge nummer 1-12 eller flere ved 1,2,5. 
+    - Endre denne    : "WHERE ecotype IN (4)"
+    """
+    )
+    return
+
+
+@app.cell(hide_code=True)
 def _(arter_df, ecosystems, mo):
-    _df = mo.sql(
+    system_arter_df = mo.sql(
         f"""
         WITH species_points AS (
             -- Use the existing geometry column (already in UTM 33N)
@@ -1093,9 +1080,17 @@ def _(arter_df, ecosystems, mo):
         FROM species_points sp
         INNER JOIN filtered_ecosystems fe
             ON ST_Intersects(sp.geom, fe.polygon_geom)
-        """
+        """,
+        output=False
     )
-    return
+    return (system_arter_df,)
+
+
+@app.cell
+def _(mo, system_arter_df):
+    okosystem_arter_df = mo.ui.table(system_arter_df)
+    okosystem_arter_df
+    return (okosystem_arter_df,)
 
 
 if __name__ == "__main__":

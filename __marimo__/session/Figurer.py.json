@@ -1,0 +1,255 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.14.17"
+  },
+  "cells": [
+    {
+      "id": "Hbol",
+      "code_hash": "1e88a89205401427e7f1bd4fade60c1c",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "MJUe",
+      "code_hash": "57064c99e8cf5c263185e9d676417b14",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='MJUe-0' random-id='8d638e37-4f3a-8235-f7b4-4f2d30bbfab8'><marimo-file-browser data-initial-value='[]' data-label='null' data-initial-path='&quot;/Users/havardhjermstad-sollerud/Documents/Kodeprosjekter/marimo/artsanalyser/artsanalyser&quot;' data-selection-mode='&quot;file&quot;' data-filetypes='[]' data-multiple='true' data-restrict-navigation='false'></marimo-file-browser></marimo-ui-element>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "vblA",
+      "code_hash": "c6efd0eca1da2f16bf6f635f060b01d5",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<pre style='font-size: 12px'>&#x27;/Users/havardhjermstad-sollerud/Documents/Kodeprosjekter/marimo/artsanalyser/artsanalyser/behandlede_data/download.csv&#x27;</pre>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "bkHC",
+      "code_hash": "6e9402547b6a5c9e7665e207f1b5a788",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "lEQa",
+      "code_hash": "532b586620c8f131d21dd11e103568d5",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='lEQa-0' random-id='8f0b2c2c-31b9-f551-e0d0-ed7a51f820e9'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;_marimo_row_id&#92;&quot;:0,&#92;&quot;Kategori&#92;&quot;:&#92;&quot;LC&#92;&quot;,&#92;&quot;Artens ID&#92;&quot;:4252,&#92;&quot;Art&#92;&quot;:&#92;&quot;Fringilla montifringilla&#92;&quot;,&#92;&quot;Navn&#92;&quot;:&#92;&quot;bj&#92;&#92;u00f8rkefink&#92;&quot;,&#92;&quot;Artsgruppe&#92;&quot;:&#92;&quot;Fugler&#92;&quot;,&#92;&quot;Observat&#92;&#92;u00f8r&#92;&quot;:&#92;&quot;Anne-Marie Austad&#92;&quot;,&#92;&quot;Observert dato&#92;&quot;:&#92;&quot;2023-05-08 00:00:00&#92;&quot;,&#92;&quot;Lokalitet&#92;&quot;:&#92;&quot;R&#92;&#92;u00f8nvikjordene Vest, R&#92;&#92;u00f8nvikjordene, Bod&#92;&#92;u00f8, No&#92;&quot;,&#92;&quot;Usikkerhet meter&#92;&quot;:874.0,&#92;&quot;Kommune&#92;&quot;:&#92;&quot;Bod&#92;&#92;u00f8&#92;&quot;,&#92;&quot;Fylke&#92;&quot;:&#92;&quot;Nordland&#92;&quot;,&#92;&quot;Antall&#92;&quot;:1.0,&#92;&quot;latitude&#92;&quot;:67.28357,&#92;&quot;longitude&#92;&quot;:14.440194,&#92;&quot;geometry&#92;&quot;:&#92;&quot;POLYGON ((475388 7463195, 475642 7463345, 475659 7463121, 476118 7463376, 476164 7463468, 476182 7463632, 476220 7463683, 476409 7463468, 476108 7463111, 475996 7462811, 475710 7462606, 475388 7463195))&#92;&quot;,&#92;&quot;Taksonomisk niv&#92;&#92;u00e5&#92;&quot;:&#92;&quot;species&#92;&quot;,&#92;&quot;Atferd&#92;&quot;:null,&#92;&quot;Familie&#92;&quot;:&#92;&quot;finkefamilien&#92;&quot;,&#92;&quot;Orden&#92;&quot;:&#92;&quot;spurvefugler&#92;&quot;,&#92;&quot;Ansvarsarter&#92;&quot;:true,&#92;&quot;Andre spesielt hensynskrevende arter&#92;&quot;:false,&#92;&quot;Spesielle &#92;&#92;u00f8kologiske former&#92;&quot;:false,&#92;&quot;Prioriterte arter&#92;&quot;:false,&#92;&quot;Fredete arter&#92;&quot;:false,&#92;&quot;Fremmede arter&#92;&quot;:false},{&#92;&quot;_marimo_row_id&#92;&quot;:1,&#92;&quot;Kategori&#92;&quot;:&#92;&quot;LC&#92;&quot;,&#92;&quot;Artens ID&#92;&quot;:4007,&#92;&quot;Art&#92;&quot;:&#92;&quot;Columba palumbus&#92;&quot;,&#92;&quot;Navn&#92;&quot;:&#92;&quot;ringdue&#92;&quot;,&#92;&quot;Artsgruppe&#92;&quot;:&#92;&quot;Fugler&#92;&quot;,&#92;&quot;Observat&#92;&#92;u00f8r&#92;&quot;:&#92;&quot;Anne-Marie Austad&#92;&quot;,&#92;&quot;Observert dato&#92;&quot;:&#92;&quot;2023-05-08 00:00:00&#92;&quot;,&#92;&quot;Lokalitet&#92;&quot;:&#92;&quot;Bondeg&#92;&#92;u00e5rdselva R&#92;&#92;u00f8nvikjordene, R&#92;&#92;u00f8nvikjordene, Bod&#92;&#92;u00f8, No&#92;&quot;,&#92;&quot;Usikkerhet meter&#92;&quot;:568.0,&#92;&quot;Kommune&#92;&quot;:&#92;&quot;Bod&#92;&#92;u00f8&#92;&quot;,&#92;&quot;Fylke&#92;&quot;:&#92;&quot;Nordland&#92;&quot;,&#92;&quot;Antall&#92;&quot;:4.0,&#92;&quot;latitude&#92;&quot;:67.281107,&#92;&quot;longitude&#92;&quot;:14.444434,&#92;&quot;geometry&#92;&quot;:&#92;&quot;POLYGON ((476124 7463121, 476389 7462950, 476243 7462888, 476085 7462783, 476108 7462700, 475894 7462569, 475785 7462545, 475701 7462566, 475707 7462599, 475819 7462646, 475956 7462816, 475994 7462803, 476018 7462920, 476124 7463121))&#92;&quot;,&#92;&quot;Taksonomisk niv&#92;&#92;u00e5&#92;&quot;:&#92;&quot;species&#92;&quot;,&#92;&quot;Atferd&#92;&quot;:&#92;&quot;feeding&#92;&quot;,&#92;&quot;Familie&#92;&quot;:&#92;&quot;duefamilien&#92;&quot;,&#92;&quot;Orden&#92;&quot;:&#92;&quot;duefugler&#92;&quot;,&#92;&quot;Ansvarsarter&#92;&quot;:false,&#92;&quot;Andre spesielt hensynskrevende arter&#92;&quot;:false,&#92;&quot;Spesielle &#92;&#92;u00f8kologiske former&#92;&quot;:false,&#92;&quot;Prioriterte arter&#92;&quot;:false,&#92;&quot;Fredete arter&#92;&quot;:false,&#92;&quot;Fremmede arter&#92;&quot;:false},{&#92;&quot;_marimo_row_id&#92;&quot;:2,&#92;&quot;Kategori&#92;&quot;:&#92;&quot;VU&#92;&quot;,&#92;&quot;Artens ID&#92;&quot;:185920,&#92;&quot;Art&#92;&quot;:&#92;&quot;Chloris chloris&#92;&quot;,&#92;&quot;Navn&#92;&quot;:&#92;&quot;gr&#92;&#92;u00f8nnfink&#92;&quot;,&#92;&quot;Artsgruppe&#92;&quot;:&#92;&quot;Fugler&#92;&quot;,&#92;&quot;Observat&#92;&#92;u00f8r&#92;&quot;:&#92;&quot;Aud&#92;&quot;,&#92;&quot;Observert dato&#92;&quot;:&#92;&quot;2018-01-28 00:00:00&#92;&quot;,&#92;&quot;Lokalitet&#92;&quot;:&#92;&quot;Skeid, bod&#92;&#92;u00f8&#92;&quot;,&#92;&quot;Usikkerhet meter&#92;&quot;:null,&#92;&quot;Kommune&#92;&quot;:&#92;&quot;Bod&#92;&#92;u00f8&#92;&quot;,&#92;&quot;Fylke&#92;&quot;:&#92;&quot;Nordland&#92;&quot;,&#92;&quot;Antall&#92;&quot;:5.0,&#92;&quot;latitude&#92;&quot;:67.276861,&#92;&quot;longitude&#92;&quot;:14.443042,&#92;&quot;geometry&#92;&quot;:&#92;&quot;POINT (475992 7462352)&#92;&quot;,&#92;&quot;Taksonomisk niv&#92;&#92;u00e5&#92;&quot;:&#92;&quot;species&#92;&quot;,&#92;&quot;Atferd&#92;&quot;:null,&#92;&quot;Familie&#92;&quot;:&#92;&quot;finkefamilien&#92;&quot;,&#92;&quot;Orden&#92;&quot;:&#92;&quot;spurvefugler&#92;&quot;,&#92;&quot;Ansvarsarter&#92;&quot;:false,&#92;&quot;Andre spesielt hensynskrevende arter&#92;&quot;:false,&#92;&quot;Spesielle &#92;&#92;u00f8kologiske former&#92;&quot;:false,&#92;&quot;Prioriterte arter&#92;&quot;:false,&#92;&quot;Fredete arter&#92;&quot;:false,&#92;&quot;Fremmede arter&#92;&quot;:false},{&#92;&quot;_marimo_row_id&#92;&quot;:3,&#92;&quot;Kategori&#92;&quot;:&#92;&quot;LC&#92;&quot;,&#92;&quot;Artens ID&#92;&quot;:4375,&#92;&quot;Art&#92;&quot;:&#92;&quot;Periparus ater&#92;&quot;,&#92;&quot;Navn&#92;&quot;:&#92;&quot;svartmeis&#92;&quot;,&#92;&quot;Artsgruppe&#92;&quot;:&#92;&quot;Fugler&#92;&quot;,&#92;&quot;Observat&#92;&#92;u00f8r&#92;&quot;:&#92;&quot;Lena Karlson&#92;&quot;,&#92;&quot;Observert dato&#92;&quot;:&#92;&quot;2021-01-30 00:00:00&#92;&quot;,&#92;&quot;Lokalitet&#92;&quot;:&#92;&quot;Bod&#92;&#92;u00f8&#92;&quot;,&#92;&quot;Usikkerhet meter&#92;&quot;:null,&#92;&quot;Kommune&#92;&quot;:&#92;&quot;Bod&#92;&#92;u00f8&#92;&quot;,&#92;&quot;Fylke&#92;&quot;:&#92;&quot;Nordland&#92;&quot;,&#92;&quot;Antall&#92;&quot;:3.0,&#92;&quot;latitude&#92;&quot;:67.284223,&#92;&quot;longitude&#92;&quot;:14.457816,&#92;&quot;geometry&#92;&quot;:&#92;&quot;POINT (476636 7463167)&#92;&quot;,&#92;&quot;Taksonomisk niv&#92;&#92;u00e5&#92;&quot;:&#92;&quot;species&#92;&quot;,&#92;&quot;Atferd&#92;&quot;:null,&#92;&quot;Familie&#92;&quot;:&#92;&quot;meisefamilien&#92;&quot;,&#92;&quot;Orden&#92;&quot;:&#92;&quot;spurvefugler&#92;&quot;,&#92;&quot;Ansvarsarter&#92;&quot;:false,&#92;&quot;Andre spesielt hensynskrevende arter&#92;&quot;:false,&#92;&quot;Spesielle &#92;&#92;u00f8kologiske former&#92;&quot;:false,&#92;&quot;Prioriterte arter&#92;&quot;:false,&#92;&quot;Fredete arter&#92;&quot;:false,&#92;&quot;Fremmede arter&#92;&quot;:false},{&#92;&quot;_marimo_row_id&#92;&quot;:4,&#92;&quot;Kategori&#92;&quot;:&#92;&quot;LC&#92;&quot;,&#92;&quot;Artens ID&#92;&quot;:296651,&#92;&quot;Art&#92;&quot;:&#92;&quot;Acanthis flammea subsp. exilipes&#92;&quot;,&#92;&quot;Navn&#92;&quot;:&#92;&quot;polarsisik&#92;&quot;,&#92;&quot;Artsgruppe&#92;&quot;:&#92;&quot;Fugler&#92;&quot;,&#92;&quot;Observat&#92;&#92;u00f8r&#92;&quot;:&#92;&quot;Thorbj&#92;&#92;u00f8rn Aakre|Thale Bones Aakre&#92;&quot;,&#92;&quot;Observert dato&#92;&quot;:&#92;&quot;2021-01-23 00:00:00&#92;&quot;,&#92;&quot;Lokalitet&#92;&quot;:&#92;&quot;R&#92;&#92;u00f8nvikjordet, Bod&#92;&#92;u00f8, No&#92;&quot;,&#92;&quot;Usikkerhet meter&#92;&quot;:100.0,&#92;&quot;Kommune&#92;&quot;:&#92;&quot;Bod&#92;&#92;u00f8&#92;&quot;,&#92;&quot;Fylke&#92;&quot;:&#92;&quot;Nordland&#92;&quot;,&#92;&quot;Antall&#92;&quot;:2.0,&#92;&quot;latitude&#92;&quot;:67.282699,&#92;&quot;longitude&#92;&quot;:14.445592,&#92;&quot;geometry&#92;&quot;:&#92;&quot;POINT (476108 7463002)&#92;&quot;,&#92;&quot;Taksonomisk niv&#92;&#92;u00e5&#92;&quot;:&#92;&quot;subspecies&#92;&quot;,&#92;&quot;Atferd&#92;&quot;:&#92;&quot;feeding&#92;&quot;,&#92;&quot;Familie&#92;&quot;:&#92;&quot;finkefamilien&#92;&quot;,&#92;&quot;Orden&#92;&quot;:&#92;&quot;spurvefugler&#92;&quot;,&#92;&quot;Ansvarsarter&#92;&quot;:false,&#92;&quot;Andre spesielt hensynskrevende arter&#92;&quot;:false,&#92;&quot;Spesielle &#92;&#92;u00f8kologiske former&#92;&quot;:false,&#92;&quot;Prioriterte arter&#92;&quot;:false,&#92;&quot;Fredete arter&#92;&quot;:false,&#92;&quot;Fremmede arter&#92;&quot;:false},{&#92;&quot;_marimo_row_id&#92;&quot;:5,&#92;&quot;Kategori&#92;&quot;:&#92;&quot;LC&#92;&quot;,&#92;&quot;Artens ID&#92;&quot;:4365,&#92;&quot;Art&#92;&quot;:&#92;&quot;Cyanistes caeruleus&#92;&quot;,&#92;&quot;Navn&#92;&quot;:&#92;&quot;bl&#92;&#92;u00e5meis&#92;&quot;,&#92;&quot;Artsgruppe&#92;&quot;:&#92;&quot;Fugler&#92;&quot;,&#92;&quot;Observat&#92;&#92;u00f8r&#92;&quot;:&#92;&quot;Lena Karlson&#92;&quot;,&#92;&quot;Observert dato&#92;&quot;:&#92;&quot;2022-01-30 00:00:00&#92;&quot;,&#92;&quot;Lokalitet&#92;&quot;:&#92;&quot;Bod&#92;&#92;u00f8&#92;&quot;,&#92;&quot;Usikkerhet meter&#92;&quot;:null,&#92;&quot;Kommune&#92;&quot;:&#92;&quot;Bod&#92;&#92;u00f8&#92;&quot;,&#92;&quot;Fylke&#92;&quot;:&#92;&quot;Nordland&#92;&quot;,&#92;&quot;Antall&#92;&quot;:2.0,&#92;&quot;latitude&#92;&quot;:67.284223,&#92;&quot;longitude&#92;&quot;:14.457816,&#92;&quot;geometry&#92;&quot;:&#92;&quot;POINT (476636 7463167)&#92;&quot;,&#92;&quot;Taksonomisk niv&#92;&#92;u00e5&#92;&quot;:&#92;&quot;species&#92;&quot;,&#92;&quot;Atferd&#92;&quot;:null,&#92;&quot;Familie&#92;&quot;:&#92;&quot;meisefamilien&#92;&quot;,&#92;&quot;Orden&#92;&quot;:&#92;&quot;spurvefugler&#92;&quot;,&#92;&quot;Ansvarsarter&#92;&quot;:false,&#92;&quot;Andre spesielt hensynskrevende arter&#92;&quot;:false,&#92;&quot;Spesielle &#92;&#92;u00f8kologiske former&#92;&quot;:false,&#92;&quot;Prioriterte arter&#92;&quot;:false,&#92;&quot;Fredete arter&#92;&quot;:false,&#92;&quot;Fremmede arter&#92;&quot;:false},{&#92;&quot;_marimo_row_id&#92;&quot;:6,&#92;&quot;Kategori&#92;&quot;:&#92;&quot;LC&#92;&quot;,&#92;&quot;Artens ID&#92;&quot;:4365,&#92;&quot;Art&#92;&quot;:&#92;&quot;Cyanistes caeruleus&#92;&quot;,&#92;&quot;Navn&#92;&quot;:&#92;&quot;bl&#92;&#92;u00e5meis&#92;&quot;,&#92;&quot;Artsgruppe&#92;&quot;:&#92;&quot;Fugler&#92;&quot;,&#92;&quot;Observat&#92;&#92;u00f8r&#92;&quot;:&#92;&quot;Margaret Engmo&#92;&quot;,&#92;&quot;Observert dato&#92;&quot;:&#92;&quot;2016-02-03 00:00:00&#92;&quot;,&#92;&quot;Lokalitet&#92;&quot;:&#92;&quot;B&#92;&#92;u00f8rsingveien 54&#92;&quot;,&#92;&quot;Usikkerhet meter&#92;&quot;:null,&#92;&quot;Kommune&#92;&quot;:&#92;&quot;Bod&#92;&#92;u00f8&#92;&quot;,&#92;&quot;Fylke&#92;&quot;:&#92;&quot;Nordland&#92;&quot;,&#92;&quot;Antall&#92;&quot;:3.0,&#92;&quot;latitude&#92;&quot;:67.27862,&#92;&quot;longitude&#92;&quot;:14.450913,&#92;&quot;geometry&#92;&quot;:&#92;&quot;POINT (476333 7462545)&#92;&quot;,&#92;&quot;Taksonomisk niv&#92;&#92;u00e5&#92;&quot;:&#92;&quot;species&#92;&quot;,&#92;&quot;Atferd&#92;&quot;:null,&#92;&quot;Familie&#92;&quot;:&#92;&quot;meisefamilien&#92;&quot;,&#92;&quot;Orden&#92;&quot;:&#92;&quot;spurvefugler&#92;&quot;,&#92;&quot;Ansvarsarter&#92;&quot;:false,&#92;&quot;Andre spesielt hensynskrevende arter&#92;&quot;:false,&#92;&quot;Spesielle &#92;&#92;u00f8kologiske former&#92;&quot;:false,&#92;&quot;Prioriterte arter&#92;&quot;:false,&#92;&quot;Fredete arter&#92;&quot;:false,&#92;&quot;Fremmede arter&#92;&quot;:false},{&#92;&quot;_marimo_row_id&#92;&quot;:7,&#92;&quot;Kategori&#92;&quot;:&#92;&quot;LC&#92;&quot;,&#92;&quot;Artens ID&#92;&quot;:4332,&#92;&quot;Art&#92;&quot;:&#92;&quot;Motacilla alba&#92;&quot;,&#92;&quot;Navn&#92;&quot;:&#92;&quot;linerle&#92;&quot;,&#92;&quot;Artsgruppe&#92;&quot;:&#92;&quot;Fugler&#92;&quot;,&#92;&quot;Observat&#92;&#92;u00f8r&#92;&quot;:&#92;&quot;Anne-Marie Austad&#92;&quot;,&#92;&quot;Observert dato&#92;&quot;:&#92;&quot;2023-05-08 00:00:00&#92;&quot;,&#92;&quot;Lokalitet&#92;&quot;:&#92;&quot;Bondeg&#92;&#92;u00e5rdselva R&#92;&#92;u00f8nvikjordene, R&#92;&#92;u00f8nvikjordene, Bod&#92;&#92;u00f8, No&#92;&quot;,&#92;&quot;Usikkerhet meter&#92;&quot;:568.0,&#92;&quot;Kommune&#92;&quot;:&#92;&quot;Bod&#92;&#92;u00f8&#92;&quot;,&#92;&quot;Fylke&#92;&quot;:&#92;&quot;Nordland&#92;&quot;,&#92;&quot;Antall&#92;&quot;:3.0,&#92;&quot;latitude&#92;&quot;:67.281107,&#92;&quot;longitude&#92;&quot;:14.444434,&#92;&quot;geometry&#92;&quot;:&#92;&quot;POLYGON ((476124 7463121, 476389 7462950, 476243 7462888, 476085 7462783, 476108 7462700, 475894 7462569, 475785 7462545, 475701 7462566, 475707 7462599, 475819 7462646, 475956 7462816, 475994 7462803, 476018 7462920, 476124 7463121))&#92;&quot;,&#92;&quot;Taksonomisk niv&#92;&#92;u00e5&#92;&quot;:&#92;&quot;species&#92;&quot;,&#92;&quot;Atferd&#92;&quot;:null,&#92;&quot;Familie&#92;&quot;:&#92;&quot;erlefamilien&#92;&quot;,&#92;&quot;Orden&#92;&quot;:&#92;&quot;spurvefugler&#92;&quot;,&#92;&quot;Ansvarsarter&#92;&quot;:false,&#92;&quot;Andre spesielt hensynskrevende arter&#92;&quot;:false,&#92;&quot;Spesielle &#92;&#92;u00f8kologiske former&#92;&quot;:false,&#92;&quot;Prioriterte arter&#92;&quot;:false,&#92;&quot;Fredete arter&#92;&quot;:false,&#92;&quot;Fremmede arter&#92;&quot;:false},{&#92;&quot;_marimo_row_id&#92;&quot;:8,&#92;&quot;Kategori&#92;&quot;:&#92;&quot;LC&#92;&quot;,&#92;&quot;Artens ID&#92;&quot;:4277,&#92;&quot;Art&#92;&quot;:&#92;&quot;Hirundo rustica&#92;&quot;,&#92;&quot;Navn&#92;&quot;:&#92;&quot;l&#92;&#92;u00e5vesvale&#92;&quot;,&#92;&quot;Artsgruppe&#92;&quot;:&#92;&quot;Fugler&#92;&quot;,&#92;&quot;Observat&#92;&#92;u00f8r&#92;&quot;:null,&#92;&quot;Observert dato&#92;&quot;:&#92;&quot;1962-07-30 00:00:00&#92;&quot;,&#92;&quot;Lokalitet&#92;&quot;:&#92;&quot;R&#92;&#92;u00d8NVIK SYKEHUS&#92;&quot;,&#92;&quot;Usikkerhet meter&#92;&quot;:5000.0,&#92;&quot;Kommune&#92;&quot;:&#92;&quot;Bod&#92;&#92;u00f8&#92;&quot;,&#92;&quot;Fylke&#92;&quot;:&#92;&quot;Nordland&#92;&quot;,&#92;&quot;Antall&#92;&quot;:4.0,&#92;&quot;latitude&#92;&quot;:67.28333,&#92;&quot;longitude&#92;&quot;:14.45,&#92;&quot;geometry&#92;&quot;:&#92;&quot;POINT (476298 7463070)&#92;&quot;,&#92;&quot;Taksonomisk niv&#92;&#92;u00e5&#92;&quot;:&#92;&quot;species&#92;&quot;,&#92;&quot;Atferd&#92;&quot;:&#92;&quot;possiblereproductive&#92;&quot;,&#92;&quot;Familie&#92;&quot;:&#92;&quot;svalefamilien&#92;&quot;,&#92;&quot;Orden&#92;&quot;:&#92;&quot;spurvefugler&#92;&quot;,&#92;&quot;Ansvarsarter&#92;&quot;:false,&#92;&quot;Andre spesielt hensynskrevende arter&#92;&quot;:false,&#92;&quot;Spesielle &#92;&#92;u00f8kologiske former&#92;&quot;:false,&#92;&quot;Prioriterte arter&#92;&quot;:false,&#92;&quot;Fredete arter&#92;&quot;:false,&#92;&quot;Fremmede arter&#92;&quot;:false},{&#92;&quot;_marimo_row_id&#92;&quot;:9,&#92;&quot;Kategori&#92;&quot;:&#92;&quot;LC&#92;&quot;,&#92;&quot;Artens ID&#92;&quot;:185988,&#92;&quot;Art&#92;&quot;:&#92;&quot;Spinus spinus&#92;&quot;,&#92;&quot;Navn&#92;&quot;:&#92;&quot;gr&#92;&#92;u00f8nnsisik&#92;&quot;,&#92;&quot;Artsgruppe&#92;&quot;:&#92;&quot;Fugler&#92;&quot;,&#92;&quot;Observat&#92;&#92;u00f8r&#92;&quot;:&#92;&quot;Thorbj&#92;&#92;u00f8rn Aakre|Thale Bones Aakre&#92;&quot;,&#92;&quot;Observert dato&#92;&quot;:&#92;&quot;2023-05-21 00:00:00&#92;&quot;,&#92;&quot;Lokalitet&#92;&quot;:&#92;&quot;R&#92;&#92;u00f8nvikjordet, Bod&#92;&#92;u00f8, No&#92;&quot;,&#92;&quot;Usikkerhet meter&#92;&quot;:100.0,&#92;&quot;Kommune&#92;&quot;:&#92;&quot;Bod&#92;&#92;u00f8&#92;&quot;,&#92;&quot;Fylke&#92;&quot;:&#92;&quot;Nordland&#92;&quot;,&#92;&quot;Antall&#92;&quot;:1.0,&#92;&quot;latitude&#92;&quot;:67.282699,&#92;&quot;longitude&#92;&quot;:14.445592,&#92;&quot;geometry&#92;&quot;:&#92;&quot;POINT (476108 7463002)&#92;&quot;,&#92;&quot;Taksonomisk niv&#92;&#92;u00e5&#92;&quot;:&#92;&quot;species&#92;&quot;,&#92;&quot;Atferd&#92;&quot;:null,&#92;&quot;Familie&#92;&quot;:&#92;&quot;finkefamilien&#92;&quot;,&#92;&quot;Orden&#92;&quot;:&#92;&quot;spurvefugler&#92;&quot;,&#92;&quot;Ansvarsarter&#92;&quot;:false,&#92;&quot;Andre spesielt hensynskrevende arter&#92;&quot;:false,&#92;&quot;Spesielle &#92;&#92;u00f8kologiske former&#92;&quot;:false,&#92;&quot;Prioriterte arter&#92;&quot;:false,&#92;&quot;Fredete arter&#92;&quot;:false,&#92;&quot;Fremmede arter&#92;&quot;:false}]&quot;' data-total-rows='365' data-total-columns='25' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='true' data-page-size='10' data-field-types='[[&quot;Kategori&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Artens ID&quot;, [&quot;integer&quot;, &quot;i64&quot;]], [&quot;Art&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Navn&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Artsgruppe&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Observat&#92;u00f8r&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Observert dato&quot;, [&quot;datetime&quot;, &quot;datetime[&#92;u03bcs]&quot;]], [&quot;Lokalitet&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Usikkerhet meter&quot;, [&quot;number&quot;, &quot;f64&quot;]], [&quot;Kommune&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Fylke&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Antall&quot;, [&quot;number&quot;, &quot;f64&quot;]], [&quot;latitude&quot;, [&quot;number&quot;, &quot;f64&quot;]], [&quot;longitude&quot;, [&quot;number&quot;, &quot;f64&quot;]], [&quot;geometry&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Taksonomisk niv&#92;u00e5&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Atferd&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Familie&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Orden&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Ansvarsarter&quot;, [&quot;boolean&quot;, &quot;bool&quot;]], [&quot;Andre spesielt hensynskrevende arter&quot;, [&quot;boolean&quot;, &quot;bool&quot;]], [&quot;Spesielle &#92;u00f8kologiske former&quot;, [&quot;boolean&quot;, &quot;bool&quot;]], [&quot;Prioriterte arter&quot;, [&quot;boolean&quot;, &quot;bool&quot;]], [&quot;Fredete arter&quot;, [&quot;boolean&quot;, &quot;bool&quot;]], [&quot;Fremmede arter&quot;, [&quot;boolean&quot;, &quot;bool&quot;]]]' data-selection='&quot;multi&quot;' data-show-filters='true' data-show-download='true' data-show-column-summaries='true' data-show-data-types='true' data-show-page-size-selector='true' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-has-stable-row-id='true' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "PKri",
+      "code_hash": "5c5aad94ec76e0bfbb7dfaae401fee2f",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Xref",
+      "code_hash": "41ac4af4c46bd8ac2f1ab677bf1e4226",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<span class=\"markdown prose dark:prose-invert\"><h3 id=\"antall\">Antall</h3></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "SFPL",
+      "code_hash": "ff8244db06d7146ff743cf85a914be3d",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<span class=\"markdown prose dark:prose-invert\"><h4 id=\"artsgrupper\">Artsgrupper</h4></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "BYtC",
+      "code_hash": "7b60576a127e9bfba991668eeaa0e7c5",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='BYtC-0' random-id='821185df-e9fd-ab07-e3d7-4210b386d6a4'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[{&#92;&quot;Artsgruppe&#92;&quot;:&#92;&quot;Fugler&#92;&quot;,&#92;&quot;Antall_sum&#92;&quot;:4084.0}]&quot;' data-total-rows='1' data-total-columns='2' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='true' data-page-size='10' data-field-types='[[&quot;Artsgruppe&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Antall_sum&quot;, [&quot;number&quot;, &quot;f64&quot;]]]' data-show-filters='true' data-show-download='true' data-show-column-summaries='false' data-show-data-types='true' data-show-page-size-selector='false' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-has-stable-row-id='false' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "RGSE",
+      "code_hash": "6e7e67f0e4679d383405147587655c3c",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<span class=\"markdown prose dark:prose-invert\"><h4 id=\"arter\">Arter</h4></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Kclp",
+      "code_hash": "17fdd9205cf9e5f16667fb4a59f1f573",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<div style='display: flex;flex: 1;flex-direction: column;justify-content: flex-start;align-items: normal;flex-wrap: nowrap;gap: 0.5rem'><marimo-ui-element object-id='Kclp-0' random-id='7a101961-b426-3562-afcd-6e6feae87e41'><marimo-dropdown data-initial-value='[&quot;Antall individer&quot;]' data-label='&quot;&lt;span class=&#92;&quot;markdown prose dark:prose-invert&#92;&quot;&gt;&lt;span class=&#92;&quot;paragraph&#92;&quot;&gt;Velg metrikk&lt;/span&gt;&lt;/span&gt;&quot;' data-options='[&quot;Antall individer&quot;, &quot;Antall observasjoner&quot;, &quot;Gjennomsnittelig antall individer pr. observasjon&quot;]' data-allow-select-none='false' data-searchable='false' data-full-width='false'></marimo-dropdown></marimo-ui-element><marimo-ui-element object-id='Kclp-1' random-id='4992201b-e95b-8897-94fc-3cd3b39d0451'><marimo-dropdown data-initial-value='[&quot;Art (kategori)&quot;]' data-label='&quot;&lt;span class=&#92;&quot;markdown prose dark:prose-invert&#92;&quot;&gt;&lt;span class=&#92;&quot;paragraph&#92;&quot;&gt;Sorter etter&lt;/span&gt;&lt;/span&gt;&quot;' data-options='[&quot;Art (kategori)&quot;, &quot;Familie&quot;, &quot;Orden&quot;]' data-allow-select-none='false' data-searchable='false' data-full-width='false'></marimo-dropdown></marimo-ui-element></div>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "emfo",
+      "code_hash": "4c33165e8f4c10fe4baa115a057bb87c",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='emfo-0' random-id='5cac5121-2446-1cf7-ee8c-efa0fb75fc83'><marimo-checkbox data-initial-value='true' data-label='&quot;&lt;span class=&#92;&quot;markdown prose dark:prose-invert&#92;&quot;&gt;&lt;span class=&#92;&quot;paragraph&#92;&quot;&gt;Vis forvaltningsinteresse&lt;/span&gt;&lt;/span&gt;&quot;' data-disabled='false'></marimo-checkbox></marimo-ui-element>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Hstk",
+      "code_hash": "4fa8e43e776997f843a33607471b80bc",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "nWHF",
+      "code_hash": "bcec8535817b6e23df271395383cbff9",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "iLit",
+      "code_hash": "e4cd526587ca2f9a1e282517acc697ee",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "ZHCJ",
+      "code_hash": "486ef3cb235648b73c50b1179948c9d1",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<marimo-ui-element object-id='ZHCJ-0' random-id='96fe6b9e-c913-dcf5-7ab4-34ac0271eac8'><marimo-vega data-initial-value='{}' data-label='null' data-spec='{&quot;config&quot;: {&quot;view&quot;: {&quot;continuousWidth&quot;: 300, &quot;continuousHeight&quot;: 300}, &quot;axis&quot;: {&quot;labelFontSize&quot;: 11, &quot;titleFontSize&quot;: 12}, &quot;legend&quot;: {&quot;labelFontSize&quot;: 11, &quot;orient&quot;: &quot;right&quot;, &quot;symbolFillColor&quot;: &quot;transparent&quot;, &quot;symbolStrokeColor&quot;: &quot;black&quot;, &quot;symbolStrokeWidth&quot;: 0.1, &quot;titleFontSize&quot;: 12}, &quot;title&quot;: {&quot;anchor&quot;: &quot;start&quot;, &quot;fontSize&quot;: 16}}, &quot;layer&quot;: [{&quot;data&quot;: {&quot;url&quot;: &quot;./@file/9551-3969932-85z4XISb.arrow&quot;, &quot;format&quot;: {&quot;type&quot;: &quot;arrow&quot;}}, &quot;mark&quot;: {&quot;type&quot;: &quot;bar&quot;, &quot;width&quot;: {&quot;band&quot;: 0.5}}, &quot;encoding&quot;: {&quot;color&quot;: {&quot;field&quot;: &quot;Kategori&quot;, &quot;legend&quot;: {&quot;orient&quot;: &quot;right&quot;, &quot;titleLimit&quot;: 200}, &quot;scale&quot;: {&quot;domain&quot;: [&quot;CR&quot;, &quot;EN&quot;, &quot;VU&quot;, &quot;NT&quot;, &quot;LC&quot;, &quot;NR&quot;, &quot;LO&quot;, &quot;NA&quot;, &quot;Unknown&quot;], &quot;range&quot;: [&quot;#d62728&quot;, &quot;#ff7f0e&quot;, &quot;#ffbb78&quot;, &quot;#aec7e8&quot;, &quot;#2ca02c&quot;, &quot;#f7f7f7&quot;, &quot;#dda0dd&quot;, &quot;#b0b0b0&quot;, &quot;#888888&quot;]}, &quot;sort&quot;: [&quot;CR&quot;, &quot;EN&quot;, &quot;VU&quot;, &quot;NT&quot;, &quot;LC&quot;, &quot;NR&quot;, &quot;LO&quot;, &quot;NA&quot;, &quot;Unknown&quot;], &quot;title&quot;: &quot;R&#92;u00f8dlistekategori&quot;, &quot;type&quot;: &quot;nominal&quot;}, &quot;tooltip&quot;: [{&quot;field&quot;: &quot;Navn&quot;, &quot;title&quot;: &quot;Art&quot;, &quot;type&quot;: &quot;nominal&quot;}, {&quot;field&quot;: &quot;Total&quot;, &quot;format&quot;: &quot;.0f&quot;, &quot;title&quot;: &quot;Antall individer&quot;, &quot;type&quot;: &quot;quantitative&quot;}, {&quot;field&quot;: &quot;Kategori&quot;, &quot;title&quot;: &quot;R&#92;u00f8dlistestatus&quot;, &quot;type&quot;: &quot;nominal&quot;}, {&quot;field&quot;: &quot;Familie&quot;, &quot;title&quot;: &quot;Familie&quot;, &quot;type&quot;: &quot;nominal&quot;}, {&quot;field&quot;: &quot;Orden&quot;, &quot;title&quot;: &quot;Orden&quot;, &quot;type&quot;: &quot;nominal&quot;}, {&quot;field&quot;: &quot;Ansvarsarter&quot;, &quot;title&quot;: &quot;Ansvarsart&quot;, &quot;type&quot;: &quot;nominal&quot;}, {&quot;field&quot;: &quot;Andre spesielt hensynskrevende arter&quot;, &quot;title&quot;: &quot;Hensynskrevende&quot;, &quot;type&quot;: &quot;nominal&quot;}, {&quot;field&quot;: &quot;Prioriterte arter&quot;, &quot;title&quot;: &quot;Prioritert&quot;, &quot;type&quot;: &quot;nominal&quot;}], &quot;x&quot;: {&quot;axis&quot;: {&quot;labelAngle&quot;: -45, &quot;labelLimit&quot;: 200, &quot;labelOverlap&quot;: false}, &quot;field&quot;: &quot;Navn&quot;, &quot;sort&quot;: [&quot;hauksanger&quot;, &quot;vipe&quot;, &quot;storspove&quot;, &quot;lappspurv&quot;, &quot;fiskem&#92;u00e5ke&quot;, &quot;brushane&quot;, &quot;gr&#92;u00f8nnfink&quot;, &quot;gr&#92;u00e5m&#92;u00e5ke&quot;, &quot;h&#92;u00f8nsehauk&quot;, &quot;granmeis&quot;, &quot;heilo&quot;, &quot;st&#92;u00e6r&quot;, &quot;gr&#92;u00e5spurv&quot;, &quot;taksvale&quot;, &quot;tyrkerdue&quot;, &quot;sanglerke&quot;, &quot;rosenfink&quot;, &quot;t&#92;u00e5rnseiler&quot;, &quot;gresshoppesanger&quot;, &quot;r&#92;u00f8dstilk&quot;, &quot;tjeld&quot;, &quot;sm&#92;u00e5spove&quot;, &quot;gr&#92;u00e5trost&quot;, &quot;heipiplerke&quot;, &quot;sidensvans&quot;, &quot;stokkand&quot;, &quot;r&#92;u00f8dvingetrost&quot;, &quot;kr&#92;u00e5ke&quot;, &quot;dompap&quot;, &quot;sivspurv&quot;, &quot;kj&#92;u00f8ttmeis&quot;, &quot;l&#92;u00f8vsanger&quot;, &quot;skj&#92;u00e6re&quot;, &quot;bl&#92;u00e5meis&quot;, &quot;bj&#92;u00f8rkefink&quot;, &quot;linerle&quot;, &quot;gr&#92;u00e5sisik&quot;, &quot;ringdue&quot;, &quot;l&#92;u00e5vesvale&quot;, &quot;bokfink&quot;, &quot;gransanger&quot;, &quot;sivsanger&quot;, &quot;enkeltbekkasin&quot;, &quot;gr&#92;u00f8nnsisik&quot;, &quot;svarttrost&quot;, &quot;svartmeis&quot;, &quot;tornsanger&quot;, &quot;jernspurv&quot;, &quot;rugde&quot;, &quot;tornirisk&quot;, &quot;gulsanger&quot;, &quot;r&#92;u00f8dstrupe&quot;, &quot;hagesanger&quot;, &quot;gr&#92;u00e5fluesnapper&quot;, &quot;fossekall&quot;, &quot;m&#92;u00e5ltrost&quot;, &quot;munk&quot;, &quot;pilfink&quot;, &quot;polarsisik&quot;, &quot;kvartbekkasin&quot;, &quot;sildem&#92;u00e5ke&quot;, &quot;gjerdesmett&quot;, &quot;flaggspett&quot;, &quot;dvergspett&quot;, &quot;svarthvit fluesnapper&quot;, &quot;trekryper&quot;, &quot;t&#92;u00e5rnfalk&quot;, &quot;lappmeis&quot;, &quot;buskskvett&quot;, &quot;fuglekonge&quot;, &quot;spurvehauk&quot;, &quot;s&#92;u00e5erle&quot;, &quot;hav&#92;u00f8rn&quot;, &quot;r&#92;u00f8rsanger&quot;, &quot;bl&#92;u00e5strupe&quot;, &quot;r&#92;u00f8dstjert&quot;, &quot;n&#92;u00f8ttekr&#92;u00e5ke&quot;, &quot;sandlo&quot;, &quot;bydue&quot;, &quot;klippedue&quot;, &quot;mandarinand&quot;, &quot;bl&#92;u00e5stjert&quot;, &quot;gulbrynsanger&quot;, &quot;fuglekongesanger&quot;], &quot;title&quot;: &quot;Art&quot;, &quot;type&quot;: &quot;nominal&quot;}, &quot;y&quot;: {&quot;field&quot;: &quot;Total&quot;, &quot;scale&quot;: {&quot;domain&quot;: [0, 1760.3999999999999]}, &quot;title&quot;: &quot;Antall individer&quot;, &quot;type&quot;: &quot;quantitative&quot;}}}, {&quot;data&quot;: {&quot;url&quot;: &quot;./@file/1695-3969932-JGLoUNcd.arrow&quot;, &quot;format&quot;: {&quot;type&quot;: &quot;arrow&quot;}}, &quot;mark&quot;: {&quot;type&quot;: &quot;point&quot;, &quot;filled&quot;: false, &quot;size&quot;: 50, &quot;stroke&quot;: &quot;black&quot;, &quot;strokeWidth&quot;: 0.5}, &quot;encoding&quot;: {&quot;shape&quot;: {&quot;field&quot;: &quot;Status&quot;, &quot;legend&quot;: {&quot;title&quot;: &quot;Forvaltningsinteresse&quot;}, &quot;scale&quot;: {&quot;domain&quot;: [&quot;Ansvarsarter&quot;, &quot;Andre spesielt hensynskrevende arter&quot;, &quot;Prioriterte arter&quot;], &quot;range&quot;: [&quot;circle&quot;, &quot;square&quot;, &quot;triangle-up&quot;]}, &quot;type&quot;: &quot;nominal&quot;}, &quot;tooltip&quot;: [{&quot;field&quot;: &quot;Navn&quot;, &quot;title&quot;: &quot;Art&quot;, &quot;type&quot;: &quot;nominal&quot;}, {&quot;field&quot;: &quot;Status&quot;, &quot;title&quot;: &quot;Status&quot;, &quot;type&quot;: &quot;nominal&quot;}], &quot;x&quot;: {&quot;field&quot;: &quot;Navn&quot;, &quot;sort&quot;: [&quot;hauksanger&quot;, &quot;vipe&quot;, &quot;storspove&quot;, &quot;lappspurv&quot;, &quot;fiskem&#92;u00e5ke&quot;, &quot;brushane&quot;, &quot;gr&#92;u00f8nnfink&quot;, &quot;gr&#92;u00e5m&#92;u00e5ke&quot;, &quot;h&#92;u00f8nsehauk&quot;, &quot;granmeis&quot;, &quot;heilo&quot;, &quot;st&#92;u00e6r&quot;, &quot;gr&#92;u00e5spurv&quot;, &quot;taksvale&quot;, &quot;tyrkerdue&quot;, &quot;sanglerke&quot;, &quot;rosenfink&quot;, &quot;t&#92;u00e5rnseiler&quot;, &quot;gresshoppesanger&quot;, &quot;r&#92;u00f8dstilk&quot;, &quot;tjeld&quot;, &quot;sm&#92;u00e5spove&quot;, &quot;gr&#92;u00e5trost&quot;, &quot;heipiplerke&quot;, &quot;sidensvans&quot;, &quot;stokkand&quot;, &quot;r&#92;u00f8dvingetrost&quot;, &quot;kr&#92;u00e5ke&quot;, &quot;dompap&quot;, &quot;sivspurv&quot;, &quot;kj&#92;u00f8ttmeis&quot;, &quot;l&#92;u00f8vsanger&quot;, &quot;skj&#92;u00e6re&quot;, &quot;bl&#92;u00e5meis&quot;, &quot;bj&#92;u00f8rkefink&quot;, &quot;linerle&quot;, &quot;gr&#92;u00e5sisik&quot;, &quot;ringdue&quot;, &quot;l&#92;u00e5vesvale&quot;, &quot;bokfink&quot;, &quot;gransanger&quot;, &quot;sivsanger&quot;, &quot;enkeltbekkasin&quot;, &quot;gr&#92;u00f8nnsisik&quot;, &quot;svarttrost&quot;, &quot;svartmeis&quot;, &quot;tornsanger&quot;, &quot;jernspurv&quot;, &quot;rugde&quot;, &quot;tornirisk&quot;, &quot;gulsanger&quot;, &quot;r&#92;u00f8dstrupe&quot;, &quot;hagesanger&quot;, &quot;gr&#92;u00e5fluesnapper&quot;, &quot;fossekall&quot;, &quot;m&#92;u00e5ltrost&quot;, &quot;munk&quot;, &quot;pilfink&quot;, &quot;polarsisik&quot;, &quot;kvartbekkasin&quot;, &quot;sildem&#92;u00e5ke&quot;, &quot;gjerdesmett&quot;, &quot;flaggspett&quot;, &quot;dvergspett&quot;, &quot;svarthvit fluesnapper&quot;, &quot;trekryper&quot;, &quot;t&#92;u00e5rnfalk&quot;, &quot;lappmeis&quot;, &quot;buskskvett&quot;, &quot;fuglekonge&quot;, &quot;spurvehauk&quot;, &quot;s&#92;u00e5erle&quot;, &quot;hav&#92;u00f8rn&quot;, &quot;r&#92;u00f8rsanger&quot;, &quot;bl&#92;u00e5strupe&quot;, &quot;r&#92;u00f8dstjert&quot;, &quot;n&#92;u00f8ttekr&#92;u00e5ke&quot;, &quot;sandlo&quot;, &quot;bydue&quot;, &quot;klippedue&quot;, &quot;mandarinand&quot;, &quot;bl&#92;u00e5stjert&quot;, &quot;gulbrynsanger&quot;, &quot;fuglekongesanger&quot;], &quot;type&quot;: &quot;nominal&quot;}, &quot;y&quot;: {&quot;field&quot;: &quot;y_pos&quot;, &quot;type&quot;: &quot;quantitative&quot;}}, &quot;transform&quot;: [{&quot;window&quot;: [{&quot;op&quot;: &quot;rank&quot;, &quot;field&quot;: &quot;&quot;, &quot;as&quot;: &quot;marker_rank&quot;}], &quot;groupby&quot;: [&quot;Navn&quot;]}, {&quot;calculate&quot;: &quot;datum.Total + 73.35000000000001 * datum.marker_rank&quot;, &quot;as&quot;: &quot;y_pos&quot;}]}], &quot;height&quot;: 500, &quot;resolve&quot;: {&quot;scale&quot;: {&quot;y&quot;: &quot;shared&quot;}}, &quot;title&quot;: &quot;Antall individer sortert etter kategori&quot;, &quot;width&quot;: 1600, &quot;&#36;schema&quot;: &quot;https://vega.github.io/schema/vega-lite/v5.20.1.json&quot;}' data-chart-selection='true' data-field-selection='true'></marimo-vega></marimo-ui-element>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "ROlb",
+      "code_hash": "b966a0c668fd17f4bd8ba5eb2c06e14d",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<span class=\"markdown prose dark:prose-invert\"><h4 id=\"atferd\">Atferd</h4></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "qnkX",
+      "code_hash": "21de213c810be6cb2429abe3b807df6e",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "TqIu",
+      "code_hash": "5226fa4eee7935ae0b2679fa17ab76f4",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/html": "<div style='display: flex;flex: 1;flex-direction: column;justify-content: flex-start;align-items: normal;flex-wrap: nowrap;gap: 0.5rem'><marimo-ui-element object-id='qnkX-0' random-id='08c4f333-8846-035e-e354-b3e6467aba73'><marimo-vega data-initial-value='{}' data-label='null' data-spec='{&quot;config&quot;: {&quot;view&quot;: {&quot;continuousWidth&quot;: 300, &quot;continuousHeight&quot;: 300}}, &quot;data&quot;: {&quot;url&quot;: &quot;./@file/206943-3969932-q5irDQoz.arrow&quot;, &quot;format&quot;: {&quot;type&quot;: &quot;arrow&quot;}}, &quot;mark&quot;: {&quot;type&quot;: &quot;bar&quot;}, &quot;encoding&quot;: {&quot;color&quot;: {&quot;field&quot;: &quot;Atferd&quot;, &quot;type&quot;: &quot;nominal&quot;}, &quot;tooltip&quot;: [{&quot;field&quot;: &quot;Navn&quot;, &quot;type&quot;: &quot;nominal&quot;}, {&quot;field&quot;: &quot;Antall&quot;, &quot;type&quot;: &quot;quantitative&quot;}, {&quot;field&quot;: &quot;Atferd&quot;, &quot;type&quot;: &quot;nominal&quot;}], &quot;x&quot;: {&quot;field&quot;: &quot;Navn&quot;, &quot;type&quot;: &quot;nominal&quot;}, &quot;y&quot;: {&quot;field&quot;: &quot;Antall&quot;, &quot;type&quot;: &quot;quantitative&quot;}}, &quot;height&quot;: 400, &quot;width&quot;: 1500, &quot;&#36;schema&quot;: &quot;https://vega.github.io/schema/vega-lite/v5.20.1.json&quot;}' data-chart-selection='true' data-field-selection='true'></marimo-vega></marimo-ui-element><marimo-ui-element object-id='TqIu-0' random-id='cf219c43-8e8e-1101-04aa-69028c20ad03'><marimo-table data-initial-value='[]' data-label='null' data-data='&quot;[]&quot;' data-total-rows='0' data-total-columns='25' data-max-columns='50' data-banner-text='&quot;&quot;' data-pagination='false' data-page-size='10' data-field-types='[[&quot;Kategori&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Artens ID&quot;, [&quot;integer&quot;, &quot;i64&quot;]], [&quot;Art&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Navn&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Artsgruppe&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Observat&#92;u00f8r&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Observert dato&quot;, [&quot;datetime&quot;, &quot;datetime[&#92;u03bcs]&quot;]], [&quot;Lokalitet&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Usikkerhet meter&quot;, [&quot;number&quot;, &quot;f64&quot;]], [&quot;Kommune&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Fylke&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Antall&quot;, [&quot;number&quot;, &quot;f64&quot;]], [&quot;latitude&quot;, [&quot;number&quot;, &quot;f64&quot;]], [&quot;longitude&quot;, [&quot;number&quot;, &quot;f64&quot;]], [&quot;geometry&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Taksonomisk niv&#92;u00e5&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Atferd&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Familie&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Orden&quot;, [&quot;string&quot;, &quot;str&quot;]], [&quot;Ansvarsarter&quot;, [&quot;boolean&quot;, &quot;bool&quot;]], [&quot;Andre spesielt hensynskrevende arter&quot;, [&quot;boolean&quot;, &quot;bool&quot;]], [&quot;Spesielle &#92;u00f8kologiske former&quot;, [&quot;boolean&quot;, &quot;bool&quot;]], [&quot;Prioriterte arter&quot;, [&quot;boolean&quot;, &quot;bool&quot;]], [&quot;Fredete arter&quot;, [&quot;boolean&quot;, &quot;bool&quot;]], [&quot;Fremmede arter&quot;, [&quot;boolean&quot;, &quot;bool&quot;]]]' data-selection='&quot;multi&quot;' data-show-filters='true' data-show-download='true' data-show-column-summaries='false' data-show-data-types='true' data-show-page-size-selector='false' data-show-column-explorer='true' data-show-chart-builder='true' data-row-headers='[]' data-has-stable-row-id='true' data-lazy='false' data-preload='false'></marimo-table></marimo-ui-element></div>"
+          }
+        }
+      ],
+      "console": []
+    }
+  ]
+}
