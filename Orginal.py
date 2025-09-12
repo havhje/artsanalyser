@@ -6,21 +6,19 @@ app = marimo.App(width="columns")
 
 @app.cell(column=0, hide_code=True)
 def _():
-    import marimo as mo
-    import polars as pl
     import altair as alt
-    import plotly as plt
-    import plotly.express as px
+    import marimo as mo
     import pandas as pd
+    import plotly.express as px
     import plotly.figure_factory as ff
+    import polars as pl
+
     return alt, ff, mo, pd, pl, px
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    valgt_fil = mo.ui.file_browser(
-        initial_path="/Users/havardhjermstad-sollerud/Downloads"
-    )
+    valgt_fil = mo.ui.file_browser(initial_path="/Users/havardhjermstad-sollerud/Downloads")
     valgt_fil
     return (valgt_fil,)
 
@@ -34,33 +32,13 @@ def _(valgt_fil):
 
 
 @app.cell
-def _(mo):
-    # Direct load for testing - replace with filepath when using file browser
-    test_file = '/Users/havardhjermstad-sollerud/Downloads/saltfjorden_ryddet.csv'
-    
+def _(filepath, mo):
     arter_df = mo.sql(
         f"""
-         SELECT * FROM read_csv('{test_file}', delim=',', header=true);
-        """,
-        output=False
+        select * from read_csv('{filepath}')
+        """
     )
-    
-    # Show basic info about the loaded data
-    data_info = mo.sql(f"""
-        SELECT 
-            COUNT(*) as total_records,
-            COUNT(DISTINCT "Navn") as unique_species,
-            COUNT(DISTINCT "Kategori") as unique_categories,
-            MIN("Observert dato") as earliest_observation,
-            MAX("Observert dato") as latest_observation
-        FROM read_csv('{test_file}', delim=',', header=true);
-    """)
-    
-    mo.md(f"""### Saltfjorden Dataset Loaded
-    Dataset contains bird observations from the Saltfjorden area.
-    """)
-    
-    return arter_df, data_info, test_file
+    return (arter_df,)
 
 
 @app.cell(hide_code=True)
@@ -120,7 +98,6 @@ def _(artsdata_kart, map_style_dropdown, mo, px, satellite_toggle):
 
     fig.update_layout(map_style=map_style_dropdown.value, height=1000)
 
-
     # Conditionally add the satellite layer based on the checkbox's value
     if satellite_toggle.value:
         fig.update_layout(
@@ -137,7 +114,6 @@ def _(artsdata_kart, map_style_dropdown, mo, px, satellite_toggle):
     else:
         # An empty list removes any existing raster layers
         fig.update_layout(map_layers=[])
-
 
     satelitt_kart = mo.ui.plotly(fig)
 
@@ -265,30 +241,33 @@ def _(artsdata_df):
 @app.cell(hide_code=True)
 def _(alt, artsdata_tid, mo, pl):
     # Group by date and sum the number of individuals
-    individuals_by_date = artsdata_tid.group_by(
-        pl.col('Observert dato').dt.date().alias('date')
-    ).agg([
-        pl.len().alias('observation_count'),  # Using pl.len() as requested
-        pl.col('Antall').sum().alias('individual_count')  # Sum of individuals
-    ]).sort('date')
-    
+    individuals_by_date = (
+        artsdata_tid.group_by(pl.col("Observert dato").dt.date().alias("date"))
+        .agg(
+            [
+                pl.len().alias("observation_count"),  # Using pl.len() as requested
+                pl.col("Antall").sum().alias("individual_count"),  # Sum of individuals
+            ]
+        )
+        .sort("date")
+    )
+
     # Create the Altair chart for individuals
-    chart_tid = alt.Chart(individuals_by_date).mark_line(point=True).encode(
-        x=alt.X('date:T', 
-                title='Dato',
-                axis=alt.Axis(format='%Y')),
-        y=alt.Y('individual_count:Q',
-                title='Antall individer'),
-        tooltip=[
-            alt.Tooltip('date:T', title='Dato', format='%d %B %Y'),
-            alt.Tooltip('individual_count:Q', title='Antall individer'),
-            alt.Tooltip('observation_count:Q', title='Antall observasjoner')
-        ]
-    ).properties(
-        width=900,
-        height=400,
-        title='Antall individer observert over tid'
-    ).interactive()
+    chart_tid = (
+        alt.Chart(individuals_by_date)
+        .mark_line(point=True)
+        .encode(
+            x=alt.X("date:T", title="Dato", axis=alt.Axis(format="%Y")),
+            y=alt.Y("individual_count:Q", title="Antall individer"),
+            tooltip=[
+                alt.Tooltip("date:T", title="Dato", format="%d %B %Y"),
+                alt.Tooltip("individual_count:Q", title="Antall individer"),
+                alt.Tooltip("observation_count:Q", title="Antall observasjoner"),
+            ],
+        )
+        .properties(width=900, height=400, title="Antall individer observert over tid")
+        .interactive()
+    )
 
     mo.ui.altair_chart(chart_tid)
     return
@@ -305,108 +284,112 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(alt, artsdata_tid, mo, pl, toggle, window_size):
     daily_stats = (
-        artsdata_tid
-        .with_columns([
-            pl.col('Observert dato').dt.date().alias('date'),
-            pl.col('Observert dato').dt.year().alias('year'),
-            pl.col('Antall').cast(pl.Int64, strict=False).fill_null(1).alias('ind_count')
-        ])
-        .group_by('date')
-        .agg([
-            pl.len().alias('daily_obs_count'),
-            pl.col('ind_count').sum().alias('daily_ind_count'),
-            pl.col('year').first().alias('year')
-        ])
+        artsdata_tid.with_columns(
+            [
+                pl.col("Observert dato").dt.date().alias("date"),
+                pl.col("Observert dato").dt.year().alias("year"),
+                pl.col("Antall").cast(pl.Int64, strict=False).fill_null(1).alias("ind_count"),
+            ]
+        )
+        .group_by("date")
+        .agg(
+            [
+                pl.len().alias("daily_obs_count"),
+                pl.col("ind_count").sum().alias("daily_ind_count"),
+                pl.col("year").first().alias("year"),
+            ]
+        )
         # Create a synthetic date using year 2024 for all data to show pattern
-        .with_columns([
-            pl.date(2024, pl.col('date').dt.month(), pl.col('date').dt.day()).alias('common_date')
-        ])
-        .group_by('common_date')
-        .agg([
-            # For observations
-            pl.col('daily_obs_count').mean().alias('avg_daily_obs'),
-            pl.col('daily_obs_count').std().alias('std_daily_obs'),
-            # For individuals
-            pl.col('daily_ind_count').mean().alias('avg_daily_ind'),
-            pl.col('daily_ind_count').std().alias('std_daily_ind'),
-            # Count years
-            pl.col('daily_obs_count').count().alias('n_years')
-        ])
-        .sort('common_date')
-        .with_columns([
-            # Rolling averages
-            pl.col('avg_daily_obs').rolling_mean(window_size.value, center=True).alias('rolling_avg_obs'),
-            pl.col('avg_daily_ind').rolling_mean(window_size.value, center=True).alias('rolling_avg_ind'),
-            # Standard errors
-            (pl.col('std_daily_obs') / pl.col('n_years').sqrt()).alias('se_obs'),
-            (pl.col('std_daily_ind') / pl.col('n_years').sqrt()).alias('se_ind')
-        ])
-        .with_columns([
-            # Confidence bands
-            (pl.col('rolling_avg_obs') - pl.col('se_obs')).alias('lower_obs'),
-            (pl.col('rolling_avg_obs') + pl.col('se_obs')).alias('upper_obs'),
-            (pl.col('rolling_avg_ind') - pl.col('se_ind')).alias('lower_ind'),
-            (pl.col('rolling_avg_ind') + pl.col('se_ind')).alias('upper_ind')
-        ])
+        .with_columns([pl.date(2024, pl.col("date").dt.month(), pl.col("date").dt.day()).alias("common_date")])
+        .group_by("common_date")
+        .agg(
+            [
+                # For observations
+                pl.col("daily_obs_count").mean().alias("avg_daily_obs"),
+                pl.col("daily_obs_count").std().alias("std_daily_obs"),
+                # For individuals
+                pl.col("daily_ind_count").mean().alias("avg_daily_ind"),
+                pl.col("daily_ind_count").std().alias("std_daily_ind"),
+                # Count years
+                pl.col("daily_obs_count").count().alias("n_years"),
+            ]
+        )
+        .sort("common_date")
+        .with_columns(
+            [
+                # Rolling averages
+                pl.col("avg_daily_obs").rolling_mean(window_size.value, center=True).alias("rolling_avg_obs"),
+                pl.col("avg_daily_ind").rolling_mean(window_size.value, center=True).alias("rolling_avg_ind"),
+                # Standard errors
+                (pl.col("std_daily_obs") / pl.col("n_years").sqrt()).alias("se_obs"),
+                (pl.col("std_daily_ind") / pl.col("n_years").sqrt()).alias("se_ind"),
+            ]
+        )
+        .with_columns(
+            [
+                # Confidence bands
+                (pl.col("rolling_avg_obs") - pl.col("se_obs")).alias("lower_obs"),
+                (pl.col("rolling_avg_obs") + pl.col("se_obs")).alias("upper_obs"),
+                (pl.col("rolling_avg_ind") - pl.col("se_ind")).alias("lower_ind"),
+                (pl.col("rolling_avg_ind") + pl.col("se_ind")).alias("upper_ind"),
+            ]
+        )
     )
 
     # Create observations chart
     obs_chart = (
-        alt.Chart(daily_stats).mark_area(opacity=0.3, color='lightblue').encode(
-            x=alt.X('common_date:T', 
-                    title='Dato',
-                    axis=alt.Axis(format='%d %b')),
-            y=alt.Y('lower_obs:Q', title='Rullerende gjennomsnitt (observasjoner)'),
-            y2='upper_obs:Q'
-        ) +
-        alt.Chart(daily_stats).mark_line(point=True, size=2, color='steelblue').encode(
-            x='common_date:T',
-            y='rolling_avg_obs:Q',
-            tooltip=[
-                alt.Tooltip('common_date:T', title='Dato', format='%d %B'),
-                alt.Tooltip('rolling_avg_obs:Q', title='Rullerende gjennomsnitt', format='.1f'),
-                alt.Tooltip('se_obs:Q', title='Standardfeil', format='.2f')
-            ]
+        (
+            alt.Chart(daily_stats)
+            .mark_area(opacity=0.3, color="lightblue")
+            .encode(
+                x=alt.X("common_date:T", title="Dato", axis=alt.Axis(format="%d %b")),
+                y=alt.Y("lower_obs:Q", title="Rullerende gjennomsnitt (observasjoner)"),
+                y2="upper_obs:Q",
+            )
+            + alt.Chart(daily_stats)
+            .mark_line(point=True, size=2, color="steelblue")
+            .encode(
+                x="common_date:T",
+                y="rolling_avg_obs:Q",
+                tooltip=[
+                    alt.Tooltip("common_date:T", title="Dato", format="%d %B"),
+                    alt.Tooltip("rolling_avg_obs:Q", title="Rullerende gjennomsnitt", format=".1f"),
+                    alt.Tooltip("se_obs:Q", title="Standardfeil", format=".2f"),
+                ],
+            )
         )
-    ).properties(
-        width=900,
-        height=400,
-        title='Observasjoner'
-    ).interactive()
+        .properties(width=900, height=400, title="Observasjoner")
+        .interactive()
+    )
 
     # Create individuals chart
     ind_chart = (
-        alt.Chart(daily_stats).mark_area(opacity=0.3, color='peachpuff').encode(
-            x=alt.X('common_date:T', 
-                    title='Dato',
-                    axis=alt.Axis(format='%d %b')),
-            y=alt.Y('lower_ind:Q', title='Rullerende gjennomsnitt (individer)'),
-            y2='upper_ind:Q'
-        ) +
-        alt.Chart(daily_stats).mark_line(
-            point={'filled': True, 'fill': 'darkorange', 'size': 20}, 
-            size=2, 
-            color='darkorange'
-        ).encode(
-            x='common_date:T',
-            y='rolling_avg_ind:Q',
-            tooltip=[
-                alt.Tooltip('common_date:T', title='Dato', format='%d %B'),
-                alt.Tooltip('rolling_avg_ind:Q', title='Rullerende gjennomsnitt', format='.1f'),
-                alt.Tooltip('se_ind:Q', title='Standardfeil', format='.2f')
-            ]
+        (
+            alt.Chart(daily_stats)
+            .mark_area(opacity=0.3, color="peachpuff")
+            .encode(
+                x=alt.X("common_date:T", title="Dato", axis=alt.Axis(format="%d %b")),
+                y=alt.Y("lower_ind:Q", title="Rullerende gjennomsnitt (individer)"),
+                y2="upper_ind:Q",
+            )
+            + alt.Chart(daily_stats)
+            .mark_line(point={"filled": True, "fill": "darkorange", "size": 20}, size=2, color="darkorange")
+            .encode(
+                x="common_date:T",
+                y="rolling_avg_ind:Q",
+                tooltip=[
+                    alt.Tooltip("common_date:T", title="Dato", format="%d %B"),
+                    alt.Tooltip("rolling_avg_ind:Q", title="Rullerende gjennomsnitt", format=".1f"),
+                    alt.Tooltip("se_ind:Q", title="Standardfeil", format=".2f"),
+                ],
+            )
         )
-    ).properties(
-        width=900,
-        height=800,
-        title='Individer'
-    ).interactive()
+        .properties(width=900, height=800, title="Individer")
+        .interactive()
+    )
 
     # Display toggle and appropriate chart
-    mo.vstack([
-        toggle,
-        ind_chart if toggle.value else obs_chart
-    ])
+    mo.vstack([toggle, ind_chart if toggle.value else obs_chart])
     return
 
 
@@ -418,7 +401,7 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(artsdata_df, mo):
-    # Husk at du må velge 
+    # Husk at du må velge
     artsdata_figurer_df = mo.ui.table(artsdata_df)
     artsdata_figurer_df
     return (artsdata_figurer_df,)
@@ -440,15 +423,13 @@ def _(mo):
 def _(mo):
     # Cell 1: Create dropdowns (unchanged)
     metric_dropdown = mo.ui.dropdown(
-        options=["Antall individer", "Antall observasjoner", "Gjennomsnittelig antall individer pr. observasjon"], 
+        options=["Antall individer", "Antall observasjoner", "Gjennomsnittelig antall individer pr. observasjon"],
         value="Antall individer",
-        label="Velg metrikk"
+        label="Velg metrikk",
     )
 
     grouping_dropdown = mo.ui.dropdown(
-        options=["Art (kategori)", "Familie", "Orden"], 
-        value="Art (kategori)",
-        label="Sorter etter"
+        options=["Art (kategori)", "Familie", "Orden"], value="Art (kategori)", label="Sorter etter"
     )
 
     mo.vstack([metric_dropdown, grouping_dropdown])
@@ -458,38 +439,29 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(artsdata_fg, metric_dropdown, pl):
     if metric_dropdown.value == "Antall individer":
-        aggregated_data = (
-            artsdata_fg
-            .group_by('Navn')
-            .agg(pl.col('Antall').sum().alias('Total'))
-        )
+        aggregated_data = artsdata_fg.group_by("Navn").agg(pl.col("Antall").sum().alias("Total"))
         y_label = "Antall individer"
     elif metric_dropdown.value == "Antall observasjoner":
-        aggregated_data = (
-            artsdata_fg
-            .group_by('Navn')
-            .agg(pl.len().alias('Total'))
-        )
+        aggregated_data = artsdata_fg.group_by("Navn").agg(pl.len().alias("Total"))
         y_label = "Antall observasjoner"
     else:
-        aggregated_data = (
-            artsdata_fg
-            .group_by('Navn')
-            .agg(pl.col('Antall').mean().alias('Total'))
-        )
+        aggregated_data = artsdata_fg.group_by("Navn").agg(pl.col("Antall").mean().alias("Total"))
         y_label = "Gjennomsnitt individer per observasjon"
 
     # Join with species information - INCLUDING THE SPECIAL CATEGORIES
-    species_info = (
-        artsdata_fg
-        .select([
-            'Navn', 'Kategori', 'Familie', 'Orden',
-            'Ansvarsarter', 'Andre spesielt hensynskrevende arter', 'Prioriterte arter'
-        ])
-        .unique()
-    )
+    species_info = artsdata_fg.select(
+        [
+            "Navn",
+            "Kategori",
+            "Familie",
+            "Orden",
+            "Ansvarsarter",
+            "Andre spesielt hensynskrevende arter",
+            "Prioriterte arter",
+        ]
+    ).unique()
 
-    data_with_info = aggregated_data.join(species_info, on='Navn')
+    data_with_info = aggregated_data.join(species_info, on="Navn")
     return data_with_info, y_label
 
 
@@ -498,19 +470,19 @@ def _(data_with_info, grouping_dropdown, pl):
     # Cell 3: Sort data and calculate group statistics
     # Define sorting field based on dropdown
     if grouping_dropdown.value == "Art (kategori)":
-        sort_field = 'Kategori'
-        color_field = 'Kategori'
-        color_title = 'Rødlistekategori'
+        sort_field = "Kategori"
+        color_field = "Kategori"
+        color_title = "Rødlistekategori"
 
         # Define explicit sort order for all possible categories
         # Norwegian Red List categories (IUCN)
-        redlist_order = ['CR', 'EN', 'VU', 'NT', 'LC', 'DD', 'NR']
+        redlist_order = ["CR", "EN", "VU", "NT", "LC", "DD", "NR"]
 
         # Alien species risk categories (Fremmede arter)
-        alien_order = ['SE', 'HI', 'PH', 'LO', 'NK']
+        alien_order = ["SE", "HI", "PH", "LO", "NK"]
 
         # Other categories
-        other_order = ['NA', 'Unknown']
+        other_order = ["NA", "Unknown"]
 
         # Combined order: Red list first (most to least threatened), then alien species (highest to lowest risk), then others
         kategori_order = redlist_order + alien_order + other_order
@@ -520,60 +492,54 @@ def _(data_with_info, grouping_dropdown, pl):
 
         # Add sort priority column
         data_with_priority = data_with_info.with_columns(
-            pl.col('Kategori').map_elements(
-                lambda x: kategori_priority.get(x, 999), 
-                return_dtype=pl.Int32
-            ).alias('kategori_priority')
+            pl.col("Kategori")
+            .map_elements(lambda x: kategori_priority.get(x, 999), return_dtype=pl.Int32)
+            .alias("kategori_priority")
         )
 
         # Sort by category priority first, then by Total within each group
-        sorted_data = data_with_priority.sort(['kategori_priority', 'Total'], descending=[False, True])
+        sorted_data = data_with_priority.sort(["kategori_priority", "Total"], descending=[False, True])
 
         # Remove the temporary priority column
-        sorted_data = sorted_data.drop('kategori_priority')
+        sorted_data = sorted_data.drop("kategori_priority")
 
     elif grouping_dropdown.value == "Familie":
-        sort_field = 'Familie'
-        color_field = 'Familie'
-        color_title = 'Familie'
+        sort_field = "Familie"
+        color_field = "Familie"
+        color_title = "Familie"
         # Sort alphabetically by Familie, then by Total within each group
-        sorted_data = data_with_info.sort([sort_field, 'Total'], descending=[False, True])
+        sorted_data = data_with_info.sort([sort_field, "Total"], descending=[False, True])
 
     else:
-        sort_field = 'Orden'
-        color_field = 'Orden'
-        color_title = 'Orden'
+        sort_field = "Orden"
+        color_field = "Orden"
+        color_title = "Orden"
         # Sort alphabetically by Orden, then by Total within each group
-        sorted_data = data_with_info.sort([sort_field, 'Total'], descending=[False, True])
+        sorted_data = data_with_info.sort([sort_field, "Total"], descending=[False, True])
 
     # Calculate group totals for annotations
-    group_totals = (
-        sorted_data
-        .group_by(sort_field)
-        .agg([
-            pl.col('Total').sum().alias('GroupTotal'),
-            pl.col('Navn').count().alias('SpeciesCount'),
-            pl.col('Navn').first().alias('FirstSpecies'),  # To position the annotation
-            pl.col('Navn').last().alias('LastSpecies')
-        ])
+    group_totals = sorted_data.group_by(sort_field).agg(
+        [
+            pl.col("Total").sum().alias("GroupTotal"),
+            pl.col("Navn").count().alias("SpeciesCount"),
+            pl.col("Navn").first().alias("FirstSpecies"),  # To position the annotation
+            pl.col("Navn").last().alias("LastSpecies"),
+        ]
     )
 
     # Add x-position for each species (for separator lines)
-    sorted_data_with_pos = sorted_data.with_columns(
-        pl.arange(0, sorted_data.height).alias('x_position')
-    )
+    sorted_data_with_pos = sorted_data.with_columns(pl.arange(0, sorted_data.height).alias("x_position"))
 
     # Find group boundaries for separator lines
     group_boundaries = (
-        sorted_data_with_pos
-        .group_by(sort_field)
-        .agg(pl.col('x_position').max().alias('last_position'))
-        .filter(pl.col('last_position') < sorted_data_with_pos.height - 1)  # Exclude last group
-        .with_columns((pl.col('last_position') + 0.5).alias('separator_position'))
+        sorted_data_with_pos.group_by(sort_field)
+        .agg(pl.col("x_position").max().alias("last_position"))
+        .filter(pl.col("last_position") < sorted_data_with_pos.height - 1)  # Exclude last group
+        .with_columns((pl.col("last_position") + 0.5).alias("separator_position"))
     )
 
     # Create species order for x-axis
-    species_order = sorted_data['Navn'].to_list()
+    species_order = sorted_data["Navn"].to_list()
 
     # Get unique values for consistent color ordering
     if grouping_dropdown.value == "Art (kategori)":
@@ -609,31 +575,29 @@ def _(
         # Combined color scheme for both Red List and alien species
         kategori_colors = {
             # Red List categories (threat-based colors)
-            'CR': '#d62728',  # Critically Endangered - Dark Red
-            'EN': '#ff7f0e',  # Endangered - Orange
-            'VU': '#ffbb78',  # Vulnerable - Light Orange
-            'NT': '#aec7e8',  # Near Threatened - Light Blue
-            'LC': '#2ca02c',  # Least Concern - Green
-            'DD': '#c7c7c7',  # Data Deficient - Gray
-            'NR': '#f7f7f7',  # Not Evaluated - Light Gray
-
+            "CR": "#d62728",  # Critically Endangered - Dark Red
+            "EN": "#ff7f0e",  # Endangered - Orange
+            "VU": "#ffbb78",  # Vulnerable - Light Orange
+            "NT": "#aec7e8",  # Near Threatened - Light Blue
+            "LC": "#2ca02c",  # Least Concern - Green
+            "DD": "#c7c7c7",  # Data Deficient - Gray
+            "NR": "#f7f7f7",  # Not Evaluated - Light Gray
             # Alien species categories (risk-based colors)
-            'SE': '#8b0000',  # Severe impact - Dark Red
-            'HI': '#ff1493',  # High impact - Deep Pink
-            'PH': '#ff69b4',  # Potentially high impact - Hot Pink
-            'LO': '#dda0dd',  # Low impact - Plum
-            'NK': '#e6e6fa',  # No known impact - Lavender
-
+            "SE": "#8b0000",  # Severe impact - Dark Red
+            "HI": "#ff1493",  # High impact - Deep Pink
+            "PH": "#ff69b4",  # Potentially high impact - Hot Pink
+            "LO": "#dda0dd",  # Low impact - Plum
+            "NK": "#e6e6fa",  # No known impact - Lavender
             # Other categories
-            'NA': '#b0b0b0',  # Not Applicable - Medium Gray
-            'Unknown': '#888888'  # Unknown - Dark Gray
+            "NA": "#b0b0b0",  # Not Applicable - Medium Gray
+            "Unknown": "#888888",  # Unknown - Dark Gray
         }
 
         # Use kategori_order from Cell 3 to ensure consistent ordering
         # kategori_order is already defined in Cell 3
 
         # Get actual categories in the data, maintaining the defined order
-        actual_categories = sorted_data['Kategori'].unique().to_list()
+        actual_categories = sorted_data["Kategori"].unique().to_list()
         color_domain = [cat for cat in kategori_order if cat in actual_categories]
         color_range = [kategori_colors[cat] for cat in color_domain]
 
@@ -641,16 +605,16 @@ def _(
         legend_sort = color_domain  # Explicit sort order for legend
     else:
         # Use default color scheme for Familie and Orden
-        color_scale = alt.Scale(scheme='category20' if len(unique_groups) > 10 else 'category10')
+        color_scale = alt.Scale(scheme="category20" if len(unique_groups) > 10 else "category10")
         legend_sort = unique_groups  # Alphabetical order from Cell 3
 
     # Create color encoding with explicit sort order
     color_encoding = alt.Color(
-        color_field, 
+        color_field,
         title=color_title,
         scale=color_scale,
         sort=legend_sort,  # Use explicit sort order for legend
-        legend=alt.Legend(orient='right', titleLimit=200)
+        legend=alt.Legend(orient="right", titleLimit=200),
     )
     return (color_encoding,)
 
@@ -674,7 +638,7 @@ def _(
     bar_width = max(0.5, min(0.9, 30 / num_species))
 
     # Calculate a base marker offset (e.g., 5% of the max value)
-    max_value = sorted_data['Total'].max()
+    max_value = sorted_data["Total"].max()
     marker_offset = max_value * 0.05 if max_value > 0 else 1
 
     # Base chart with bars (no changes here)
@@ -682,45 +646,49 @@ def _(
         alt.Chart(sorted_data)
         .mark_bar(width=alt.RelativeBandSize(bar_width))
         .encode(
-            x=alt.X('Navn', 
-                    title='Art', 
-                    sort=species_order,
-                    axis=alt.Axis(labelAngle=-45, labelLimit=200, labelOverlap=False)),
-            y=alt.Y('Total', title=y_label, scale=alt.Scale(domain=[0, max_value * 1.2])), # Extend domain to make space
+            x=alt.X(
+                "Navn",
+                title="Art",
+                sort=species_order,
+                axis=alt.Axis(labelAngle=-45, labelLimit=200, labelOverlap=False),
+            ),
+            y=alt.Y(
+                "Total", title=y_label, scale=alt.Scale(domain=[0, max_value * 1.2])
+            ),  # Extend domain to make space
             color=color_encoding,
             tooltip=[
-                alt.Tooltip('Navn', title='Art'),
-                alt.Tooltip('Total', title=y_label, format='.2f' if 'Gjennomsnitt' in y_label else '.0f'),
-                alt.Tooltip('Kategori', title='Rødlistestatus'),
-                alt.Tooltip('Familie', title='Familie'),
-                alt.Tooltip('Orden', title='Orden'),
-                alt.Tooltip('Ansvarsarter', title='Ansvarsart'),
-                alt.Tooltip('Andre spesielt hensynskrevende arter', title='Hensynskrevende'),
-                alt.Tooltip('Prioriterte arter', title='Prioritert')
-            ]
+                alt.Tooltip("Navn", title="Art"),
+                alt.Tooltip("Total", title=y_label, format=".2f" if "Gjennomsnitt" in y_label else ".0f"),
+                alt.Tooltip("Kategori", title="Rødlistestatus"),
+                alt.Tooltip("Familie", title="Familie"),
+                alt.Tooltip("Orden", title="Orden"),
+                alt.Tooltip("Ansvarsarter", title="Ansvarsart"),
+                alt.Tooltip("Andre spesielt hensynskrevende arter", title="Hensynskrevende"),
+                alt.Tooltip("Prioriterte arter", title="Prioritert"),
+            ],
         )
     )
 
     # --- 2. Data Transformation for Markers (Corrected) ---
 
     # Define the columns that represent marker categories
-    marker_cols = ['Ansvarsarter', 'Andre spesielt hensynskrevende arter', 'Prioriterte arter']
+    marker_cols = ["Ansvarsarter", "Andre spesielt hensynskrevende arter", "Prioriterte arter"]
 
     # Reshape the data from wide to long format for markers
     # This is the key step for creating a legend automatically
     # NOTE: .melt() is replaced with .unpivot() and arguments are updated
     marker_data = (
-        sorted_data
-        .filter(pl.any_horizontal(pl.col(c) for c in marker_cols)) # Keep only rows with at least one special status
-        .unpivot( # <-- Changed from .melt()
-            index=['Navn', 'Total'],         # <-- Changed from id_vars
-            on=marker_cols,                  # <-- Changed from value_vars
-            variable_name='Status', 
-            value_name='Is_True'
+        sorted_data.filter(
+            pl.any_horizontal(pl.col(c) for c in marker_cols)
+        )  # Keep only rows with at least one special status
+        .unpivot(  # <-- Changed from .melt()
+            index=["Navn", "Total"],  # <-- Changed from id_vars
+            on=marker_cols,  # <-- Changed from value_vars
+            variable_name="Status",
+            value_name="Is_True",
         )
-        .filter(pl.col('Is_True')) # Keep only the True values
+        .filter(pl.col("Is_True"))  # Keep only the True values
     )
-
 
     # --- 3. Create the Improved Marker Layer (Single Black & Hollow Legend) ---
 
@@ -729,40 +697,33 @@ def _(
         markers = (
             alt.Chart(marker_data)
             .mark_point(
-                size=50,         # A good size for visibility
-                filled=False,     # Makes the markers hollow
-                stroke='black',   # Statically sets the outline color to black for all markers
-                strokeWidth=0.5   # A thicker outline is easier to see
+                size=50,  # A good size for visibility
+                filled=False,  # Makes the markers hollow
+                stroke="black",  # Statically sets the outline color to black for all markers
+                strokeWidth=0.5,  # A thicker outline is easier to see
             )
             .encode(
-                x=alt.X('Navn:N', sort=species_order),
-                y=alt.Y('y_pos:Q', axis=None), 
-
+                x=alt.X("Navn:N", sort=species_order),
+                y=alt.Y("y_pos:Q", axis=None),
                 # --- SHAPE ENCODING ---
                 # This is now the ONLY encoding that will generate a legend for the markers.
-                shape=alt.Shape('Status:N', 
-                                scale=alt.Scale(
-                                    domain=marker_cols, 
-                                    range=['circle', 'square', 'triangle-up']
-                                ),
-                                # Configure the legend title
-                                legend=alt.Legend(title="Forvaltningsinteresse")),
-
+                shape=alt.Shape(
+                    "Status:N",
+                    scale=alt.Scale(domain=marker_cols, range=["circle", "square", "triangle-up"]),
+                    # Configure the legend title
+                    legend=alt.Legend(title="Forvaltningsinteresse"),
+                ),
                 # The color encoding has been removed!
-
-                tooltip=[
-                    alt.Tooltip('Navn', title='Art'),
-                    alt.Tooltip('Status', title='Status')
-                ]
+                tooltip=[alt.Tooltip("Navn", title="Art"), alt.Tooltip("Status", title="Status")],
             )
             .transform_window(
                 # For each species ('Navn'), assign a rank to its statuses for stacking.
-                marker_rank='rank()',
-                groupby=['Navn']
+                marker_rank="rank()",
+                groupby=["Navn"],
             )
             .transform_calculate(
                 # Calculate the y-position to stack markers above the bars.
-                y_pos=f'datum.Total + {marker_offset} * datum.marker_rank'
+                y_pos=f"datum.Total + {marker_offset} * datum.marker_rank"
             )
         )
 
@@ -778,58 +739,34 @@ def _(
     # call to be explicit.
 
     final_chart = (
-        chart
-        .properties(
-            width=1200, 
-            height=500,
-            title=f"{metric_dropdown.value} sortert etter {sort_field.lower()}"
-        )
-        .configure_axis(
-            labelFontSize=11,
-            titleFontSize=12
-        )
-        .configure_title(
-            fontSize=16,
-            anchor='start'
-        )
+        chart.properties(width=1200, height=500, title=f"{metric_dropdown.value} sortert etter {sort_field.lower()}")
+        .configure_axis(labelFontSize=11, titleFontSize=12)
+        .configure_title(fontSize=16, anchor="start")
         .configure_legend(
             titleFontSize=12,
             labelFontSize=11,
-            orient='right', # Place legend on the right side
+            orient="right",  # Place legend on the right side
             # Explicitly make legend symbols hollow with a black outline
-            symbolFillColor='transparent',
-            symbolStrokeColor='black'
+            symbolFillColor="transparent",
+            symbolStrokeColor="black",
         )
     )
 
     interactive_chart = mo.ui.altair_chart(final_chart)
     interactive_chart
 
-
     # --- 4. Final Chart Configuration ---
 
     final_chart = (
-        chart
-        .properties(
-            width=1200, 
-            height=500,
-            title=f"{metric_dropdown.value} sortert etter {sort_field.lower()}"
-        )
-        .configure_axis(
-            labelFontSize=11,
-            titleFontSize=12
-        )
-        .configure_title(
-            fontSize=16,
-            anchor='start'
-        )
+        chart.properties(width=1200, height=500, title=f"{metric_dropdown.value} sortert etter {sort_field.lower()}")
+        .configure_axis(labelFontSize=11, titleFontSize=12)
+        .configure_title(fontSize=16, anchor="start")
         .configure_legend(
             titleFontSize=12,
             labelFontSize=11,
-            orient='right' # Place legend on the right side
+            orient="right",  # Place legend on the right side
         )
     )
-
 
     interactive_chart = mo.ui.altair_chart(final_chart)
     interactive_chart
@@ -844,12 +781,12 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(alt, artsdata_fg, mo):
-    figur_atferd = mo.ui.altair_chart(alt.Chart(artsdata_fg).mark_bar().encode(
-        x="Navn",
-        y="Antall",
-        color="Atferd",
-        tooltip=["Navn", "Antall", "Atferd"]
-    ).properties(width=1500, height=400))
+    figur_atferd = mo.ui.altair_chart(
+        alt.Chart(artsdata_fg)
+        .mark_bar()
+        .encode(x="Navn", y="Antall", color="Atferd", tooltip=["Navn", "Antall", "Atferd"])
+        .properties(width=1500, height=400)
+    )
     return (figur_atferd,)
 
 
@@ -867,21 +804,22 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    import requests
     import json
     import time
-    
+
+    import requests
+
     # Setup DuckDB spatial extension
     spatial_setup = mo.sql("""
         INSTALL spatial;
         LOAD spatial;
         SELECT 'DuckDB spatial extension loaded successfully' as status;
     """)
-    
+
     mo.md(r"""### Spatial Analysis Setup
     DuckDB spatial extension has been loaded and is ready for ecosystem analysis.
     """)
-    return requests, json, time, spatial_setup
+    return json, requests, time
 
 
 @app.cell(hide_code=True)
@@ -910,48 +848,43 @@ def _(arter_df, mo, pd):
 
     # Convert to pandas DataFrame if needed and extract values
 
-    if hasattr(bbox_stats, 'to_pandas'):
+    if hasattr(bbox_stats, "to_pandas"):
         bbox_df = bbox_stats.to_pandas()
     else:
         bbox_df = pd.DataFrame(bbox_stats)
 
     # Extract values and add 10% buffer
-    xmin = float(bbox_df['xmin'].values[0])
-    xmax = float(bbox_df['xmax'].values[0])
-    ymin = float(bbox_df['ymin'].values[0])
-    ymax = float(bbox_df['ymax'].values[0])
+    xmin = float(bbox_df["xmin"].values[0])
+    xmax = float(bbox_df["xmax"].values[0])
+    ymin = float(bbox_df["ymin"].values[0])
+    ymax = float(bbox_df["ymax"].values[0])
 
     x_buffer = (xmax - xmin) * 0.1
     y_buffer = (ymax - ymin) * 0.1
 
-    bbox = {
-        'xmin': xmin - x_buffer,
-        'ymin': ymin - y_buffer,
-        'xmax': xmax + x_buffer,
-        'ymax': ymax + y_buffer
-    }
+    bbox = {"xmin": xmin - x_buffer, "ymin": ymin - y_buffer, "xmax": xmax + x_buffer, "ymax": ymax + y_buffer}
 
     # Create WKT polygon for the bounding box
     bbox_wkt = f"POLYGON(({bbox['xmin']} {bbox['ymin']}, {bbox['xmax']} {bbox['ymin']}, {bbox['xmax']} {bbox['ymax']}, {bbox['xmin']} {bbox['ymax']}, {bbox['xmin']} {bbox['ymin']}))"
 
     mo.md(f"""
     ### Bounding Box UTM Zone 33N (EPSG:25833)
-    - X Min: {bbox['xmin']:.0f}
-    - Y Min: {bbox['ymin']:.0f}  
-    - X Max: {bbox['xmax']:.0f}
-    - Y Max: {bbox['ymax']:.0f}
-    - Area: {(bbox['xmax']-bbox['xmin'])*(bbox['ymax']-bbox['ymin'])/1000000:.1f} km²
+    - X Min: {bbox["xmin"]:.0f}
+    - Y Min: {bbox["ymin"]:.0f}  
+    - X Max: {bbox["xmax"]:.0f}
+    - Y Max: {bbox["ymax"]:.0f}
+    - Area: {(bbox["xmax"] - bbox["xmin"]) * (bbox["ymax"] - bbox["ymin"]) / 1000000:.1f} km²
 
     ### WKT Polygon
     ```
     {bbox_wkt}
     ```
-    
+
     ### Debug: Check coordinate system
     The coordinates appear to be in UTM Zone 33N (EPSG:25833) which is correct for Norway.
     Ecosystem service should accept this coordinate system.
     """)
-    return (coords_extracted,)
+    return bbox_wkt, coords_extracted
 
 
 @app.cell(hide_code=True)
@@ -961,168 +894,158 @@ def _(bbox_wkt, json, mo, requests, time):
         Download GeoJSON data from ArcGIS REST service with pagination support
         """
         base_url = f"{service_url}/{layer_id}/query"
-        
+
         # Debug: Show the bbox being used
         mo.md(f"**Debug Info:**\nUsing bounding box: {bbox_geometry[:100]}...")
-        
+
         # First, get total count
         count_params = {
-            'where': '1=1',
-            'geometry': bbox_geometry,
-            'geometryType': 'esriGeometryPolygon',
-            'spatialRel': 'esriSpatialRelIntersects',
-            'returnCountOnly': 'true',
-            'f': 'json'
+            "where": "1=1",
+            "geometry": bbox_geometry,
+            "geometryType": "esriGeometryPolygon",
+            "spatialRel": "esriSpatialRelIntersects",
+            "returnCountOnly": "true",
+            "f": "json",
         }
-        
+
         mo.md(f"**Testing API endpoint:** {base_url}")
-        
+
         response = requests.get(base_url, params=count_params)
         mo.md(f"**API Response Status:** {response.status_code}")
-        
+
         if response.status_code != 200:
             mo.md(f"**API Error:** {response.text}")
             return {"type": "FeatureCollection", "features": []}
-        
+
         response_data = response.json()
         mo.md(f"**API Response:** {json.dumps(response_data, indent=2)}")
-        
-        total_count = response_data.get('count', 0)
-        
+
+        total_count = response_data.get("count", 0)
+
         mo.md(f"**Total records in bounding box: {total_count}**")
-        
+
         # If no records, try a simple query without geometry filter
         if total_count == 0:
             mo.md("**Trying query without spatial filter...**")
-            simple_params = {
-                'where': '1=1',
-                'returnCountOnly': 'true',
-                'f': 'json'
-            }
+            simple_params = {"where": "1=1", "returnCountOnly": "true", "f": "json"}
             simple_response = requests.get(base_url, params=simple_params)
             if simple_response.status_code == 200:
                 simple_data = simple_response.json()
                 mo.md(f"**Total records in entire dataset: {simple_data.get('count', 0)}**")
-        
+
         # Download data in chunks
         all_features = []
         offset = 0
-        
+
         while offset < total_count:
             query_params = {
-                'where': '1=1',
-                'geometry': bbox_geometry,
-                'geometryType': 'esriGeometryPolygon',
-                'spatialRel': 'esriSpatialRelIntersects',
-                'outFields': '*',
-                'returnGeometry': 'true',
-                'resultOffset': offset,
-                'resultRecordCount': max_records,
-                'f': 'geojson'
+                "where": "1=1",
+                "geometry": bbox_geometry,
+                "geometryType": "esriGeometryPolygon",
+                "spatialRel": "esriSpatialRelIntersects",
+                "outFields": "*",
+                "returnGeometry": "true",
+                "resultOffset": offset,
+                "resultRecordCount": max_records,
+                "f": "geojson",
             }
-            
+
             response = requests.get(base_url, params=query_params)
             if response.status_code == 200:
                 geojson_data = response.json()
-                features = geojson_data.get('features', [])
+                features = geojson_data.get("features", [])
                 all_features.extend(features)
-                
+
                 mo.md(f"Downloaded {len(features)} features (offset: {offset})")
                 offset += len(features)
-                
+
                 if len(features) < max_records:
                     break
-                    
+
                 # Small delay to be respectful to the service
                 time.sleep(0.1)
             else:
                 mo.md(f"Error downloading data: {response.status_code}")
                 break
-        
+
         # Create complete GeoJSON
-        complete_geojson = {
-            "type": "FeatureCollection",
-            "features": all_features
-        }
-        
+        complete_geojson = {"type": "FeatureCollection", "features": all_features}
+
         return complete_geojson
-    
+
     # Download ecosystem data - try with original UTM bbox first
     service_url = "https://kart2.miljodirektoratet.no/arcgis/rest/services/hovedokosystem/hovedokosystem/MapServer"
     ecosystem_geojson = download_arcgis_geojson(service_url, 0, bbox_wkt)
-    
+
     # If no features found, try with lat/lon envelope approach
-    if len(ecosystem_geojson['features']) == 0:
+    if len(ecosystem_geojson["features"]) == 0:
         mo.md("**Original UTM query returned 0 results. Trying lat/lon envelope approach...**")
-        
+
         def download_with_envelope(service_url, layer_id, lat_min, lat_max, lon_min, lon_max):
             base_url = f"{service_url}/{layer_id}/query"
-            
+
             # Create envelope geometry string
             envelope_geometry = f"{lon_min},{lat_min},{lon_max},{lat_max}"
-            
+
             # First get count
             count_params = {
-                'where': '1=1',
-                'geometry': envelope_geometry,
-                'geometryType': 'esriGeometryEnvelope',
-                'inSR': '4326',  # WGS84
-                'spatialRel': 'esriSpatialRelIntersects',
-                'returnCountOnly': 'true',
-                'f': 'json'
+                "where": "1=1",
+                "geometry": envelope_geometry,
+                "geometryType": "esriGeometryEnvelope",
+                "inSR": "4326",  # WGS84
+                "spatialRel": "esriSpatialRelIntersects",
+                "returnCountOnly": "true",
+                "f": "json",
             }
-            
+
             response = requests.get(base_url, params=count_params)
             mo.md(f"**Envelope count query status:** {response.status_code}")
-            
+
             if response.status_code != 200:
                 mo.md(f"**Envelope count error:** {response.text}")
                 return {"type": "FeatureCollection", "features": []}
-            
-            total_count = response.json().get('count', 0)
+
+            total_count = response.json().get("count", 0)
             mo.md(f"**Total records in lat/lon envelope: {total_count}**")
-            
+
             # Download all features with pagination
             all_features = []
             offset = 0
             max_records = 1000
-            
+
             while offset < total_count:
                 query_params = {
-                    'where': '1=1',
-                    'geometry': envelope_geometry,
-                    'geometryType': 'esriGeometryEnvelope',
-                    'inSR': '4326',
-                    'spatialRel': 'esriSpatialRelIntersects',
-                    'outFields': '*',
-                    'returnGeometry': 'true',
-                    'resultOffset': offset,
-                    'resultRecordCount': max_records,
-                    'f': 'geojson'
+                    "where": "1=1",
+                    "geometry": envelope_geometry,
+                    "geometryType": "esriGeometryEnvelope",
+                    "inSR": "4326",
+                    "spatialRel": "esriSpatialRelIntersects",
+                    "outFields": "*",
+                    "returnGeometry": "true",
+                    "resultOffset": offset,
+                    "resultRecordCount": max_records,
+                    "f": "geojson",
                 }
-                
+
                 response = requests.get(base_url, params=query_params)
                 if response.status_code == 200:
                     geojson_data = response.json()
-                    features = geojson_data.get('features', [])
+                    features = geojson_data.get("features", [])
                     all_features.extend(features)
-                    
+
                     mo.md(f"Downloaded {len(features)} features (offset: {offset})")
                     offset += len(features)
-                    
+
                     if len(features) < max_records:
                         break
-                        
+
                     time.sleep(0.1)
                 else:
                     mo.md(f"Error downloading batch: {response.status_code}")
                     break
-            
-            return {
-                "type": "FeatureCollection", 
-                "features": all_features
-            }
-        
+
+            return {"type": "FeatureCollection", "features": all_features}
+
         # Convert your data's lat/lon bounds for envelope query
         # Get actual lat/lon bounds from your bird data
         coords_latlon = mo.sql("""
@@ -1134,426 +1057,20 @@ def _(bbox_wkt, json, mo, requests, time):
             FROM read_csv('/Users/havardhjermstad-sollerud/Downloads/saltfjorden_ryddet.csv', delim=',', header=true)
             WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
         """)
-        
-        lat_min = coords_latlon['lat_min'][0] - 0.1  # Add buffer
-        lat_max = coords_latlon['lat_max'][0] + 0.1
-        lon_min = coords_latlon['lon_min'][0] - 0.1
-        lon_max = coords_latlon['lon_max'][0] + 0.1
-        
+
+        lat_min = coords_latlon["lat_min"][0] - 0.1  # Add buffer
+        lat_max = coords_latlon["lat_max"][0] + 0.1
+        lon_min = coords_latlon["lon_min"][0] - 0.1
+        lon_max = coords_latlon["lon_max"][0] + 0.1
+
         mo.md(f"**Using lat/lon bounds:** {lat_min:.3f}, {lat_max:.3f}, {lon_min:.3f}, {lon_max:.3f}")
-        
+
         ecosystem_geojson = download_with_envelope(service_url, 0, lat_min, lat_max, lon_min, lon_max)
-    
+
     mo.md(f"""### Ecosystem Data Download Complete
-    Downloaded {len(ecosystem_geojson['features'])} ecosystem polygons from Miljødirektoratet
+    Downloaded {len(ecosystem_geojson["features"])} ecosystem polygons from Miljødirektoratet
     """)
-    
-    return download_arcgis_geojson, ecosystem_geojson
 
-
-@app.cell(hide_code=True)
-def _(ecosystem_geojson, json, mo):
-    # Convert GeoJSON to temporary file for DuckDB
-    import tempfile
-    import os
-    
-    # Set GDAL configuration to handle large geometries
-    os.environ['OGR_GEOJSON_MAX_OBJ_SIZE'] = '0'  # Remove size limit
-    
-    # Check if we have any data
-    if len(ecosystem_geojson.get('features', [])) == 0:
-        mo.md("**Warning: No ecosystem data to load. Skipping spatial analysis.**")
-        return None, None
-    
-    mo.md(f"**Loading {len(ecosystem_geojson['features'])} ecosystem polygons...**")
-    
-    # Create temporary GeoJSON file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.geojson', delete=False) as f:
-        json.dump(ecosystem_geojson, f)
-        temp_geojson_path = f.name
-    
-    try:
-        # Load ecosystem data into DuckDB spatial table with error handling
-        ecosystem_table = mo.sql(f"""
-            -- First try to load and see what we get
-            SELECT * FROM ST_Read('{temp_geojson_path}') LIMIT 5;
-        """)
-        
-        mo.md("**Sample data loaded successfully. Creating full table...**")
-        
-        # Create the full table
-        ecosystem_table = mo.sql(f"""
-            CREATE OR REPLACE TABLE ecosystems AS 
-            SELECT 
-                COALESCE(properties.OBJECTID, properties.objectid, ROW_NUMBER() OVER()) as objectid,
-                COALESCE(properties.id, properties.ecosystem_id) as ecosystem_id,
-                COALESCE(properties.fylke, properties.county_id) as county_id,
-                COALESCE(properties.ecotype, properties.ecotype_code) as ecotype_code,
-                COALESCE(properties.areal, properties.area_m2, 0) as area_m2,
-                -- Simplify complex geometries to avoid memory issues
-                ST_Simplify(ST_GeomFromGeoJSON(geometry), 10) as geometry
-            FROM ST_Read('{temp_geojson_path}')
-            WHERE geometry IS NOT NULL;
-            
-            -- Create spatial index
-            CREATE INDEX idx_ecosystems_geom ON ecosystems USING RTREE (geometry);
-            
-            -- Return summary
-            SELECT COUNT(*) as ecosystem_count, 
-                   COUNT(DISTINCT ecotype_code) as unique_ecotypes,
-                   ROUND(SUM(area_m2)/1000000, 2) as total_area_km2
-            FROM ecosystems;
-        """)
-        
-        mo.md(f"""### Ecosystem Data Loaded to DuckDB
-        Successfully loaded ecosystem polygons with spatial indexing.
-        Geometries simplified to improve performance.
-        """)
-        
-    except Exception as e:
-        mo.md(f"**Error loading ecosystem data:** {str(e)}")
-        mo.md("**Attempting alternative approach with geometry simplification...**")
-        
-        # Alternative: Load without spatial operations first
-        try:
-            ecosystem_table = mo.sql(f"""
-                CREATE OR REPLACE TABLE ecosystems_raw AS 
-                SELECT 
-                    properties,
-                    geometry
-                FROM ST_Read('{temp_geojson_path}')
-                LIMIT 100;  -- Start with smaller subset
-                
-                SELECT COUNT(*) as loaded_features FROM ecosystems_raw;
-            """)
-            
-            mo.md("**Loaded subset of ecosystem data for testing.**")
-        except Exception as e2:
-            mo.md(f"**Alternative approach also failed:** {str(e2)}")
-            ecosystem_table = None
-    
-    finally:
-        # Clean up temp file
-        if os.path.exists(temp_geojson_path):
-            os.unlink(temp_geojson_path)
-    
-    return ecosystem_table, temp_geojson_path
-
-
-@app.cell(hide_code=True)
-def _(arter_df, mo):
-    # Prepare species point data for spatial analysis
-    species_spatial = mo.sql("""
-        CREATE OR REPLACE TABLE species_points AS
-        SELECT 
-            *,
-            ST_Point(
-                CAST(regexp_extract(geometry, 'POINT \\(([0-9.]+)', 1) AS DOUBLE),
-                CAST(regexp_extract(geometry, 'POINT \\([0-9.]+ ([0-9.]+)', 1) AS DOUBLE)
-            ) as point_geom
-        FROM arter_df
-        WHERE geometry IS NOT NULL 
-        AND geometry != ''
-        AND geometry LIKE 'POINT%'
-        AND regexp_extract(geometry, 'POINT \\(([0-9.]+)', 1) IS NOT NULL
-        AND regexp_extract(geometry, 'POINT \\([0-9.]+ ([0-9.]+)', 1) IS NOT NULL;
-        
-        CREATE INDEX idx_species_geom ON species_points USING RTREE (point_geom);
-        
-        SELECT COUNT(*) as species_observations,
-               COUNT(DISTINCT "Navn") as unique_species,
-               MIN(ST_X(point_geom)) as min_x,
-               MAX(ST_X(point_geom)) as max_x,
-               MIN(ST_Y(point_geom)) as min_y,
-               MAX(ST_Y(point_geom)) as max_y
-        FROM species_points;
-    """)
-    
-    mo.md("""### Species Point Data Prepared
-    Species observations converted to spatial points with indexing for efficient overlay analysis.
-    """)
-    
-    return (species_spatial,)
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    # Perform spatial overlay analysis
-    overlay_results = mo.sql("""
-        -- Create species-ecosystem overlay
-        CREATE OR REPLACE TABLE species_ecosystem_overlay AS
-        SELECT 
-            sp."Navn" as species_name,
-            sp."Kategori" as red_list_category,
-            sp."Familie" as family,
-            sp."Orden" as order_name,
-            sp."Antall" as individual_count,
-            sp."Observert dato" as observation_date,
-            ST_X(sp.point_geom) as longitude,
-            ST_Y(sp.point_geom) as latitude,
-            eco.ecosystem_id,
-            eco.ecotype_code,
-            eco.county_id,
-            eco.area_m2 as ecosystem_area_m2
-        FROM species_points sp
-        JOIN ecosystems eco ON ST_Within(sp.point_geom, eco.geometry);
-        
-        -- Summary by ecosystem type
-        SELECT 
-            ecotype_code,
-            COUNT(*) as observation_count,
-            COUNT(DISTINCT species_name) as unique_species,
-            SUM(individual_count) as total_individuals,
-            ROUND(AVG(individual_count), 2) as avg_individuals_per_obs,
-            ROUND(SUM(ecosystem_area_m2)/1000000, 2) as total_ecosystem_area_km2
-        FROM species_ecosystem_overlay
-        GROUP BY ecotype_code
-        ORDER BY unique_species DESC;
-    """)
-    
-    mo.md("""### Spatial Overlay Analysis Complete
-    Species observations have been overlaid with ecosystem polygons, showing which ecosystem types host different species.
-    """)
-    
-    return (overlay_results,)
-
-
-@app.cell(hide_code=True) 
-def _(mo):
-    # Get detailed species-ecosystem summary
-    ecosystem_species_summary = mo.sql("""
-        -- Top ecosystems by species diversity
-        WITH ecosystem_diversity AS (
-            SELECT 
-                ecotype_code,
-                COUNT(DISTINCT species_name) as species_count,
-                COUNT(*) as observation_count,
-                SUM(individual_count) as individual_count
-            FROM species_ecosystem_overlay
-            GROUP BY ecotype_code
-        ),
-        -- Conservation categories by ecosystem
-        conservation_by_ecosystem AS (
-            SELECT 
-                ecotype_code,
-                red_list_category,
-                COUNT(DISTINCT species_name) as species_in_category,
-                COUNT(*) as observations_in_category
-            FROM species_ecosystem_overlay
-            WHERE red_list_category IN ('CR', 'EN', 'VU', 'NT')
-            GROUP BY ecotype_code, red_list_category
-        )
-        SELECT 
-            ed.ecotype_code,
-            ed.species_count,
-            ed.observation_count,
-            ed.individual_count,
-            COALESCE(SUM(CASE WHEN cbe.red_list_category = 'CR' THEN cbe.species_in_category ELSE 0 END), 0) as critically_endangered,
-            COALESCE(SUM(CASE WHEN cbe.red_list_category = 'EN' THEN cbe.species_in_category ELSE 0 END), 0) as endangered,
-            COALESCE(SUM(CASE WHEN cbe.red_list_category = 'VU' THEN cbe.species_in_category ELSE 0 END), 0) as vulnerable,
-            COALESCE(SUM(CASE WHEN cbe.red_list_category = 'NT' THEN cbe.species_in_category ELSE 0 END), 0) as near_threatened
-        FROM ecosystem_diversity ed
-        LEFT JOIN conservation_by_ecosystem cbe ON ed.ecotype_code = cbe.ecotype_code
-        GROUP BY ed.ecotype_code, ed.species_count, ed.observation_count, ed.individual_count
-        ORDER BY ed.species_count DESC;
-    """)
-    
-    return (ecosystem_species_summary,)
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    # UI controls for ecosystem visualization
-    show_ecosystems = mo.ui.checkbox(value=True, label="Show ecosystem polygons")
-    show_species = mo.ui.checkbox(value=True, label="Show species points")
-    ecotype_filter = mo.ui.dropdown(
-        options=["All"] + [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], 
-        value="All",
-        label="Filter by ecosystem type"
-    )
-    
-    mo.hstack([show_ecosystems, show_species, ecotype_filter])
-    return show_ecosystems, show_species, ecotype_filter
-
-
-@app.cell(hide_code=True)
-def _(ecotype_filter, map_style_dropdown, mo, px, satellite_toggle, show_ecosystems, show_species):
-    # Get data for visualization
-    if ecotype_filter.value == "All":
-        overlay_data = mo.sql("""
-            SELECT * FROM species_ecosystem_overlay
-            LIMIT 1000;  -- Limit for performance
-        """)
-        
-        ecosystem_data = mo.sql("""
-            SELECT 
-                ecotype_code,
-                ST_X(ST_Centroid(geometry)) as center_lon,
-                ST_Y(ST_Centroid(geometry)) as center_lat,
-                area_m2/1000000 as area_km2
-            FROM ecosystems
-            LIMIT 500;  -- Limit for performance
-        """)
-    else:
-        overlay_data = mo.sql(f"""
-            SELECT * FROM species_ecosystem_overlay
-            WHERE ecotype_code = {ecotype_filter.value}
-            LIMIT 1000;
-        """)
-        
-        ecosystem_data = mo.sql(f"""
-            SELECT 
-                ecotype_code,
-                ST_X(ST_Centroid(geometry)) as center_lon,
-                ST_Y(ST_Centroid(geometry)) as center_lat,
-                area_m2/1000000 as area_km2
-            FROM ecosystems
-            WHERE ecotype_code = {ecotype_filter.value}
-            LIMIT 500;
-        """)
-    
-    # Create the map
-    fig = px.scatter_mapbox()
-    
-    # Add species points if enabled
-    if show_species.value and len(overlay_data) > 0:
-        fig.add_scattermapbox(
-            lat=overlay_data['latitude'],
-            lon=overlay_data['longitude'],
-            mode='markers',
-            marker=dict(size=8, color=overlay_data['ecotype_code'], colorscale='Viridis'),
-            text=[f"Species: {name}<br>Ecosystem: {eco}<br>Count: {count}" 
-                  for name, eco, count in zip(overlay_data['species_name'], 
-                                            overlay_data['ecotype_code'], 
-                                            overlay_data['individual_count'])],
-            name='Species Observations',
-            hovertemplate='%{text}<extra></extra>'
-        )
-    
-    # Add ecosystem centroids if enabled  
-    if show_ecosystems.value and len(ecosystem_data) > 0:
-        fig.add_scattermapbox(
-            lat=ecosystem_data['center_lat'],
-            lon=ecosystem_data['center_lon'],
-            mode='markers',
-            marker=dict(size=ecosystem_data['area_km2']*2, 
-                       color=ecosystem_data['ecotype_code'], 
-                       colorscale='Set1',
-                       opacity=0.6),
-            text=[f"Ecosystem Type: {eco}<br>Area: {area:.2f} km²" 
-                  for eco, area in zip(ecosystem_data['ecotype_code'], ecosystem_data['area_km2'])],
-            name='Ecosystem Areas',
-            hovertemplate='%{text}<extra></extra>'
-        )
-    
-    # Set center of map based on data
-    if len(overlay_data) > 0:
-        center_lat = overlay_data['latitude'].mean()
-        center_lon = overlay_data['longitude'].mean()
-    else:
-        center_lat = 60.0  # Default for Norway
-        center_lon = 10.0
-    
-    fig.update_layout(
-        mapbox_style=map_style_dropdown.value,
-        mapbox=dict(center=dict(lat=center_lat, lon=center_lon), zoom=10),
-        height=800,
-        title="Species-Ecosystem Overlay Analysis"
-    )
-    
-    if satellite_toggle.value:
-        fig.update_layout(
-            mapbox_layers=[
-                {
-                    "below": "traces",
-                    "sourcetype": "raster",
-                    "source": [
-                        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                    ],
-                }
-            ]
-        )
-    
-    overlay_map = mo.ui.plotly(fig)
-    overlay_map
-    return overlay_data, ecosystem_data, overlay_map
-
-
-@app.cell(hide_code=True)
-def _(ecosystem_species_summary, mo):
-    mo.md("""### Ecosystem-Species Analysis Results
-    Summary of species diversity and conservation status across different ecosystem types.
-    """)
-    
-    # Display the summary table
-    summary_table = mo.ui.table(ecosystem_species_summary, page_size=20)
-    summary_table
-    return (summary_table,)
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    # Export functionality
-    export_button = mo.ui.button(label="Export Overlay Results to CSV")
-    
-    def export_to_csv():
-        overlay_export = mo.sql("""
-            SELECT 
-                species_name,
-                red_list_category,
-                family,
-                order_name,
-                individual_count,
-                observation_date,
-                longitude,
-                latitude,
-                ecotype_code,
-                county_id,
-                ecosystem_area_m2
-            FROM species_ecosystem_overlay
-        """)
-        
-        # Convert to pandas and save
-        if hasattr(overlay_export, 'to_pandas'):
-            df = overlay_export.to_pandas()
-            df.to_csv('species_ecosystem_overlay.csv', index=False)
-            return f"Exported {len(df)} records to species_ecosystem_overlay.csv"
-        else:
-            return "Export functionality requires pandas conversion"
-    
-    if export_button.value:
-        result = export_to_csv()
-        mo.md(f"**Export Status:** {result}")
-    
-    export_button
-    return (export_button,)
-
-
-@app.cell(hide_code=True)
-def _(mo, overlay_results):
-    # Display key insights
-    mo.md(f"""### Key Insights from Ecosystem Overlay Analysis
-
-    #### Summary Statistics:
-    - **Total Overlays**: {len(overlay_results) if hasattr(overlay_results, '__len__') else 'Processing...'}
-    - **Ecosystem Types**: Multiple ecosystem types identified with varying species diversity
-    - **Conservation Value**: Analysis shows distribution of threatened species across ecosystems
-    
-    #### Conservation Implications:
-    - Ecosystems with high species diversity may require enhanced protection
-    - Threatened species locations provide guidance for conservation priorities  
-    - Spatial patterns reveal ecosystem-species relationships for management planning
-    
-    #### Data Sources:
-    - **Species Data**: User-provided CSV with species observations
-    - **Ecosystem Data**: Norwegian Environment Agency (Miljødirektoratet) 
-    - **Analysis**: DuckDB spatial overlay using GEOS geometry operations
-    """)
-    return
-
-
-@app.cell(column=5)
-def _():
     return
 
 
