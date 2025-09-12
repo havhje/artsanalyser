@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.15.0"
+__generated_with = "0.14.17"
 app = marimo.App(width="columns")
 
 
@@ -30,7 +30,7 @@ def _():
 
 @app.cell(hide_code=True)
 def _(mo):
-    valgt_fil = mo.ui.file_browser()
+    valgt_fil = mo.ui.file_browser(initial_path=r"C:\Users\havh\OneDrive - Multiconsult\Dokumenter\Oppdrag")
     valgt_fil
     return (valgt_fil,)
 
@@ -179,7 +179,7 @@ def _(mo, oppryddet_df, pl):
     mo.vstack([
     mo.md(f""" ####Endrer navn manuelt"""),
     editor
-    
+
     ])
 
 
@@ -256,12 +256,7 @@ def _(endelig_datasett):
 
 @app.cell(column=1, hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
-    # Utility functions
-
-    """
-    )
+    mo.md(r"""# Utility functions""")
     return
 
 
@@ -433,14 +428,14 @@ def _(pl):
     def add_national_interest_criteria(df_enriched, excel_path=None):
         """
         Add national interest criteria from Excel file to enriched dataframe.
-    
+
         Parameters:
         -----------
         df_enriched : pl.DataFrame
             The enriched dataframe with species data
         excel_path : str, optional
             Path to the Excel file with criteria. If None, uses default path.
-        
+
         Returns:
         --------
         pl.DataFrame
@@ -448,14 +443,14 @@ def _(pl):
         """
         # Use default path if not provided
         if excel_path is None:
-            excel_path = r"C:\Users\havh\OneDrive - Multiconsult\Dokumenter\Kodeprosjekter\Artsdatabanken\Artsdatabanken\Arter av nasjonal forvaltningsinteresse\ArtslisteArtnasjonal_2023_01-31 (1).xlsx"
-    
+            excel_path = r"Arter av nasjonal forvaltningsinteresse\ArtslisteArtnasjonal_2023_01-31 (1).xlsx"
+
         # Load Excel with criteria
         df_excel = pl.read_excel(excel_path)
-    
+
         # Get criteria columns (those starting with "Kriterium")
         criteria_cols = [col for col in df_excel.columns[4:] if col.startswith("Kriterium")]
-    
+
         # Process criteria data - convert X marks to Yes/No
         criteria_data = df_excel.select(
             ["ValidScientificNameId"] + 
@@ -465,7 +460,7 @@ def _(pl):
              .alias(col.replace("Kriterium_", "").replace("_", " "))
              for col in criteria_cols]
         )
-    
+
         # Merge with enriched data
         df_with_criteria = df_enriched.join(
             criteria_data,
@@ -473,13 +468,13 @@ def _(pl):
             right_on="ValidScientificNameId",
             how="left"
         )
-    
+
         # Fill nulls with "No" for non-matched rows
         criteria_renamed = [col.replace("Kriterium_", "").replace("_", " ") for col in criteria_cols]
         df_with_criteria = df_with_criteria.with_columns(
             [pl.col(col).fill_null("No") for col in criteria_renamed]
         )
-    
+
         return df_with_criteria
     return (add_national_interest_criteria,)
 
@@ -494,12 +489,12 @@ def _(mo):
 def clean_and_rename_columns(df):
     """
     Select specific columns and rename them to Norwegian names.
-    
+
     Parameters:
     -----------
     df : pl.DataFrame
         Input dataframe with raw column names
-        
+
     Returns:
     --------
     pl.DataFrame
@@ -516,7 +511,7 @@ def clean_and_rename_columns(df):
         "Andre spesielt hensynskrevende arter", "Spesielle okologiske former", 
         "Prioriterte arter", "Fredete arter", "Fremmede arter"
     ]
-    
+
     # Define column renaming mapping
     rename_mapping = {
         "category": "Kategori",
@@ -537,13 +532,13 @@ def clean_and_rename_columns(df):
         "OrdenNavn": "Orden",
         "Spesielle okologiske former": "Spesielle økologiske former"
     }
-    
+
     # Select columns and rename in one operation
     cleaned_df = (df
         .select(columns_to_keep)
         .rename(rename_mapping)
     )
-    
+
     return cleaned_df
 
 
