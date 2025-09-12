@@ -12,8 +12,13 @@ def _():
     import plotly.express as px
     import plotly.figure_factory as ff
     import polars as pl
-
-    return alt, ff, mo, pd, pl, px
+    import requests
+    import json
+    import time
+    import tempfile
+    import os
+    import duckdb
+    return alt, duckdb, ff, json, mo, os, pd, pl, px, requests, tempfile, time
 
 
 @app.cell(hide_code=True)
@@ -796,291 +801,339 @@ def _(figur_atferd, mo):
     return
 
 
-@app.cell(column=4)
+@app.cell(column=4, hide_code=True)
 def _(mo):
-    mo.md(r"""## Overlangsanalyse mot hovedøkosystemkartet""")
+    mo.md(r"""## Overlagsanalyse mot hovedøkosystemkartet""")
     return
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    import json
-    import time
-
-    import requests
-
-    # Setup DuckDB spatial extension
-    spatial_setup = mo.sql("""
-        INSTALL spatial;
-        LOAD spatial;
-        SELECT 'DuckDB spatial extension loaded successfully' as status;
-    """)
-
-    mo.md(r"""### Spatial Analysis Setup
-    DuckDB spatial extension has been loaded and is ready for ecosystem analysis.
-    """)
-    return json, requests, time
-
-
-@app.cell(hide_code=True)
 def _(arter_df, mo, pd):
-    # Extract coordinates from geometry column with better error handling
-    coords_extracted = mo.sql("""
+    # Extract UTM coordinates from geometry column
+    coords_utm = mo.sql("""
         SELECT 
             TRY_CAST(regexp_extract(geometry, 'POINT \\(([0-9.]+)', 1) AS DOUBLE) as x,
             TRY_CAST(regexp_extract(geometry, 'POINT \\([0-9.]+ ([0-9.]+)', 1) AS DOUBLE) as y
         FROM arter_df
         WHERE geometry IS NOT NULL 
-        AND geometry != ''
-        AND geometry LIKE 'POINT%'
+            AND geometry != ''
+            AND geometry LIKE 'POINT%'
     """)
 
-    # Calculate min/max values, filtering out NULL coordinates
-    bbox_stats = mo.sql("""
+    # Calculate bounding box with 10% buffer
+    bbox_utm = mo.sql("""
         SELECT 
-            MIN(x) as xmin,
-            MAX(x) as xmax,
-            MIN(y) as ymin,
-            MAX(y) as ymax
-        FROM coords_extracted
+            MIN(x) - (MAX(x) - MIN(x)) * 0.1 as xmin,
+            MAX(x) + (MAX(x) - MIN(x)) * 0.1 as xmax,
+            MIN(y) - (MAX(y) - MIN(y)) * 0.1 as ymin,
+            MAX(y) + (MAX(y) - MIN(y)) * 0.1 as ymax,
+            (MAX(x) - MIN(x)) * (MAX(y) - MIN(y)) / 1000000 as area_km2
+        FROM coords_utm
         WHERE x IS NOT NULL AND y IS NOT NULL
     """)
 
-    # Convert to pandas DataFrame if needed and extract values
-
-    if hasattr(bbox_stats, "to_pandas"):
-        bbox_df = bbox_stats.to_pandas()
+    # Convert to pandas DataFrame and extract values
+    if hasattr(bbox_utm, "to_pandas"):
+        bbox_df = bbox_utm.to_pandas()
     else:
-        bbox_df = pd.DataFrame(bbox_stats)
+        bbox_df = pd.DataFrame(bbox_utm)
 
-    # Extract values and add 10% buffer
+    # Extract values from the DataFrame
     xmin = float(bbox_df["xmin"].values[0])
     xmax = float(bbox_df["xmax"].values[0])
     ymin = float(bbox_df["ymin"].values[0])
     ymax = float(bbox_df["ymax"].values[0])
-
-    x_buffer = (xmax - xmin) * 0.1
-    y_buffer = (ymax - ymin) * 0.1
-
-    bbox = {"xmin": xmin - x_buffer, "ymin": ymin - y_buffer, "xmax": xmax + x_buffer, "ymax": ymax + y_buffer}
-
-    # Create WKT polygon for the bounding box
-    bbox_wkt = f"POLYGON(({bbox['xmin']} {bbox['ymin']}, {bbox['xmax']} {bbox['ymin']}, {bbox['xmax']} {bbox['ymax']}, {bbox['xmin']} {bbox['ymax']}, {bbox['xmin']} {bbox['ymin']}))"
+    area_km2 = float(bbox_df["area_km2"].values[0])
 
     mo.md(f"""
     ### Bounding Box UTM Zone 33N (EPSG:25833)
-    - X Min: {bbox["xmin"]:.0f}
-    - Y Min: {bbox["ymin"]:.0f}  
-    - X Max: {bbox["xmax"]:.0f}
-    - Y Max: {bbox["ymax"]:.0f}
-    - Area: {(bbox["xmax"] - bbox["xmin"]) * (bbox["ymax"] - bbox["ymin"]) / 1000000:.1f} km²
-
-    ### WKT Polygon
-    ```
-    {bbox_wkt}
-    ```
-
-    ### Debug: Check coordinate system
-    The coordinates appear to be in UTM Zone 33N (EPSG:25833) which is correct for Norway.
-    Ecosystem service should accept this coordinate system.
+    - **X Range:** {xmin:.0f} - {xmax:.0f}
+    - **Y Range:** {ymin:.0f} - {ymax:.0f}
+    - **Area:** {area_km2:.1f} km²
     """)
-    return bbox_wkt, coords_extracted
+    return area_km2, coords_utm, xmax, xmin, ymax, ymin
 
 
 @app.cell(hide_code=True)
-def _(bbox_wkt, json, mo, requests, time):
-    def download_arcgis_geojson(service_url, layer_id, bbox_geometry, max_records=2000):
+def _(
+    area_km2,
+    map_style_dropdown,
+    mo,
+    satellite_toggle,
+    xmax,
+    xmin,
+    ymax,
+    ymin,
+):
+    # Convert UTM bounding box corners to lat/lon for map display
+    import pyproj
+    import plotly.graph_objects as go
+
+
+    # Create transformer from UTM Zone 33N to WGS84
+    transformer = pyproj.Transformer.from_crs("EPSG:25833", "EPSG:4326", always_xy=True)
+
+    # Convert bounding box corners to lat/lon
+    bbox_corners_utm = [
+        (xmin, ymin),
+        (xmax, ymin),
+        (xmax, ymax),
+        (xmin, ymax),
+        (xmin, ymin)  # Close the polygon
+    ]
+
+    bbox_lons = []
+    bbox_lats = []
+    for x, y in bbox_corners_utm:
+        lon, lat = transformer.transform(x, y)
+        bbox_lons.append(lon)
+        bbox_lats.append(lat)
+
+    # Create plotly map figure
+    fig_map_bbox = go.Figure()
+
+    # Add the bounding box as a polygon on the map
+    fig_map_bbox.add_trace(go.Scattermap(
+        mode='lines',
+        lon=bbox_lons,
+        lat=bbox_lats,
+        fill='toself',
+        fillcolor='rgba(255, 0, 0, 0.2)',
+        line=dict(width=3, color='red'),
+        name='Bounding Box',
+        text=f'Area: {area_km2:.1f} km²'
+    ))
+
+    # Calculate center of bounding box for map centering
+    center_lon = sum(bbox_lons[:-1]) / 4
+    center_lat = sum(bbox_lats[:-1]) / 4
+
+    # Update layout with map settings
+    fig_map_bbox.update_layout(
+        map=dict(
+            style=map_style_dropdown.value,
+            center=dict(lat=center_lat, lon=center_lon),
+            zoom=9
+        ),
+        height=700,
+        title='UTM Zone 33N Bounding Box on Map',
+        showlegend=True
+    )
+
+    # Add satellite imagery if toggle is on
+    if satellite_toggle.value:
+        fig_map_bbox.update_layout(
+            map_style="white-bg",
+            map_layers=[
+                {
+                    "below": "traces",
+                    "sourcetype": "raster",
+                    "source": [
+                        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                    ],
+                }
+            ],
+        )
+
+    mo.ui.plotly(fig_map_bbox)
+    return
+
+
+@app.cell(hide_code=True)
+def _():
+    service_url = "https://kart2.miljodirektoratet.no/arcgis/rest/services/hovedokosystem/hovedokosystem/MapServer"
+    return (service_url,)
+
+
+@app.cell(hide_code=True)
+def _(mo, requests, service_url, time, xmax, xmin, ymax, ymin):
+    # If envelope works better, here's an updated download function
+    def download_arcgis_utm33_envelope(service_url, layer_id, xmin, ymin, xmax, ymax, max_records=2000):
         """
-        Download GeoJSON data from ArcGIS REST service with pagination support
+        Download GeoJSON data using envelope geometry
         """
         base_url = f"{service_url}/{layer_id}/query"
 
-        # Debug: Show the bbox being used
-        mo.md(f"**Debug Info:**\nUsing bounding box: {bbox_geometry[:100]}...")
-
-        # First, get total count
-        count_params = {
-            "where": "1=1",
-            "geometry": bbox_geometry,
-            "geometryType": "esriGeometryPolygon",
+        # Use envelope format for the geometry
+        base_params = {
+            "geometry": f"{xmin},{ymin},{xmax},{ymax}",
+            "geometryType": "esriGeometryEnvelope",
             "spatialRel": "esriSpatialRelIntersects",
-            "returnCountOnly": "true",
-            "f": "json",
+            "inSR": "25833",
+            "outSR": "25833",
+            "where": "1=1",
+            "f": "json"
         }
 
-        mo.md(f"**Testing API endpoint:** {base_url}")
+        # Get total count first
+        count_params = {**base_params, "returnCountOnly": "true"}
 
-        response = requests.get(base_url, params=count_params)
-        mo.md(f"**API Response Status:** {response.status_code}")
+        try:
+            response = requests.get(base_url, params=count_params)
+            response.raise_for_status()
+            result = response.json()
 
-        if response.status_code != 200:
-            mo.md(f"**API Error:** {response.text}")
+            if "error" in result:
+                mo.md(f"**Service error:** {result['error']}")
+                return {"type": "FeatureCollection", "features": []}
+
+            total_count = result.get("count", 0)
+            mo.md(f"**Found {total_count} features in the bounding box**")
+
+            if total_count == 0:
+                return {"type": "FeatureCollection", "features": []}
+
+        except requests.exceptions.RequestException as e:
+            mo.md(f"**Error querying service:** {str(e)}")
             return {"type": "FeatureCollection", "features": []}
 
-        response_data = response.json()
-        mo.md(f"**API Response:** {json.dumps(response_data, indent=2)}")
-
-        total_count = response_data.get("count", 0)
-
-        mo.md(f"**Total records in bounding box: {total_count}**")
-
-        # If no records, try a simple query without geometry filter
-        if total_count == 0:
-            mo.md("**Trying query without spatial filter...**")
-            simple_params = {"where": "1=1", "returnCountOnly": "true", "f": "json"}
-            simple_response = requests.get(base_url, params=simple_params)
-            if simple_response.status_code == 200:
-                simple_data = simple_response.json()
-                mo.md(f"**Total records in entire dataset: {simple_data.get('count', 0)}**")
-
-        # Download data in chunks
+        # Download features with pagination
         all_features = []
         offset = 0
 
         while offset < total_count:
             query_params = {
-                "where": "1=1",
-                "geometry": bbox_geometry,
-                "geometryType": "esriGeometryPolygon",
-                "spatialRel": "esriSpatialRelIntersects",
+                **base_params,
                 "outFields": "*",
                 "returnGeometry": "true",
                 "resultOffset": offset,
-                "resultRecordCount": max_records,
-                "f": "geojson",
+                "resultRecordCount": min(max_records, total_count - offset),
+                "f": "geojson"
             }
 
-            response = requests.get(base_url, params=query_params)
-            if response.status_code == 200:
+            try:
+                response = requests.get(base_url, params=query_params)
+                response.raise_for_status()
+
                 geojson_data = response.json()
                 features = geojson_data.get("features", [])
                 all_features.extend(features)
 
-                mo.md(f"Downloaded {len(features)} features (offset: {offset})")
-                offset += len(features)
+                downloaded = len(features)
+                offset += downloaded
 
-                if len(features) < max_records:
+                mo.md(f"Progress: {offset}/{total_count} features downloaded")
+
+                if downloaded == 0:
                     break
 
-                # Small delay to be respectful to the service
                 time.sleep(0.1)
-            else:
-                mo.md(f"Error downloading data: {response.status_code}")
+
+            except requests.exceptions.RequestException as e:
+                mo.md(f"**Error downloading batch at offset {offset}:** {str(e)}")
                 break
 
-        # Create complete GeoJSON
-        complete_geojson = {"type": "FeatureCollection", "features": all_features}
+        return {"type": "FeatureCollection", "features": all_features}
 
-        return complete_geojson
+    # Try the envelope-based download
+    ecosystem_geojson_envelope = download_arcgis_utm33_envelope(
+        service_url, 0, xmin, ymin, xmax, ymax
+    )
 
-    # Download ecosystem data - try with original UTM bbox first
-    service_url = "https://kart2.miljodirektoratet.no/arcgis/rest/services/hovedokosystem/hovedokosystem/MapServer"
-    ecosystem_geojson = download_arcgis_geojson(service_url, 0, bbox_wkt)
-
-    # If no features found, try with lat/lon envelope approach
-    if len(ecosystem_geojson["features"]) == 0:
-        mo.md("**Original UTM query returned 0 results. Trying lat/lon envelope approach...**")
-
-        def download_with_envelope(service_url, layer_id, lat_min, lat_max, lon_min, lon_max):
-            base_url = f"{service_url}/{layer_id}/query"
-
-            # Create envelope geometry string
-            envelope_geometry = f"{lon_min},{lat_min},{lon_max},{lat_max}"
-
-            # First get count
-            count_params = {
-                "where": "1=1",
-                "geometry": envelope_geometry,
-                "geometryType": "esriGeometryEnvelope",
-                "inSR": "4326",  # WGS84
-                "spatialRel": "esriSpatialRelIntersects",
-                "returnCountOnly": "true",
-                "f": "json",
-            }
-
-            response = requests.get(base_url, params=count_params)
-            mo.md(f"**Envelope count query status:** {response.status_code}")
-
-            if response.status_code != 200:
-                mo.md(f"**Envelope count error:** {response.text}")
-                return {"type": "FeatureCollection", "features": []}
-
-            total_count = response.json().get("count", 0)
-            mo.md(f"**Total records in lat/lon envelope: {total_count}**")
-
-            # Download all features with pagination
-            all_features = []
-            offset = 0
-            max_records = 1000
-
-            while offset < total_count:
-                query_params = {
-                    "where": "1=1",
-                    "geometry": envelope_geometry,
-                    "geometryType": "esriGeometryEnvelope",
-                    "inSR": "4326",
-                    "spatialRel": "esriSpatialRelIntersects",
-                    "outFields": "*",
-                    "returnGeometry": "true",
-                    "resultOffset": offset,
-                    "resultRecordCount": max_records,
-                    "f": "geojson",
-                }
-
-                response = requests.get(base_url, params=query_params)
-                if response.status_code == 200:
-                    geojson_data = response.json()
-                    features = geojson_data.get("features", [])
-                    all_features.extend(features)
-
-                    mo.md(f"Downloaded {len(features)} features (offset: {offset})")
-                    offset += len(features)
-
-                    if len(features) < max_records:
-                        break
-
-                    time.sleep(0.1)
-                else:
-                    mo.md(f"Error downloading batch: {response.status_code}")
-                    break
-
-            return {"type": "FeatureCollection", "features": all_features}
-
-        # Convert your data's lat/lon bounds for envelope query
-        # Get actual lat/lon bounds from your bird data
-        coords_latlon = mo.sql("""
-            SELECT 
-                MIN(latitude) as lat_min,
-                MAX(latitude) as lat_max,
-                MIN(longitude) as lon_min,
-                MAX(longitude) as lon_max
-            FROM read_csv('/Users/havardhjermstad-sollerud/Downloads/saltfjorden_ryddet.csv', delim=',', header=true)
-            WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
-        """)
-
-        lat_min = coords_latlon["lat_min"][0] - 0.1  # Add buffer
-        lat_max = coords_latlon["lat_max"][0] + 0.1
-        lon_min = coords_latlon["lon_min"][0] - 0.1
-        lon_max = coords_latlon["lon_max"][0] + 0.1
-
-        mo.md(f"**Using lat/lon bounds:** {lat_min:.3f}, {lat_max:.3f}, {lon_min:.3f}, {lon_max:.3f}")
-
-        ecosystem_geojson = download_with_envelope(service_url, 0, lat_min, lat_max, lon_min, lon_max)
-
-    mo.md(f"""### Ecosystem Data Download Complete
-    Downloaded {len(ecosystem_geojson["features"])} ecosystem polygons from Miljødirektoratet
+    mo.md(f"""### Ecosystem Data Download (Envelope Method)
+    Downloaded **{len(ecosystem_geojson_envelope["features"])}** ecosystem polygons
     """)
+    return (ecosystem_geojson_envelope,)
 
+
+@app.cell
+def _(ecosystem_geojson_envelope, json, tempfile):
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.geojson', delete=False) as f:
+        json.dump(ecosystem_geojson_envelope, f)
+        temp_geojson_path = f.name
+    return (temp_geojson_path,)
+
+
+@app.cell
+def _(os):
+    os.environ['OGR_GEOJSON_MAX_OBJ_SIZE'] = '0'
     return
 
 
 @app.cell
-def _():
+def _(arter_df, mo, temp_geojson_path):
+    _df = mo.sql(
+        f"""
+        -- Install the spatial extension
+        INSTALL spatial;
+
+        -- Load the spatial extension
+        LOAD spatial;
+
+        -- Load ecosystem data from the temp GeoJSON file
+        CREATE OR REPLACE TABLE ecosystem_types AS
+        SELECT * FROM ST_Read('{temp_geojson_path}');
+
+        -- Extract point geometries from arter_df using lat/long columns
+        CREATE OR REPLACE TABLE species_points AS
+        SELECT 
+            *,
+            ST_Point(longitude, latitude) as geom_point
+        FROM arter_df
+        WHERE latitude IS NOT NULL 
+            AND longitude IS NOT NULL;
+
+        -- Perform spatial join to count species per ecosystem type
+        CREATE OR REPLACE TABLE species_per_ecosystem AS
+        SELECT 
+            e.OBJECTID,
+            e.ecotype as ecosystem_type,
+            COUNT(DISTINCT s.Navn) as species_count,
+            COUNT(*) as observation_count,
+            SUM(CAST(s.Antall AS INTEGER)) as total_individuals,
+            ST_Area(e.geom) / 1000000 as area_km2
+        FROM ecosystem_types e
+        LEFT JOIN species_points s 
+            ON ST_Within(s.geom_point, e.geom)
+        GROUP BY e.OBJECTID, e.ecotype, e.geom
+        ORDER BY species_count DESC;
+
+        -- Summary by ecosystem type
+        SELECT 
+            ecosystem_type,
+            COUNT(DISTINCT OBJECTID) as polygon_count,
+            SUM(species_count) as total_species,
+            SUM(observation_count) as total_observations,
+            SUM(total_individuals) as total_individuals,
+            SUM(area_km2) as total_area_km2,
+            ROUND(SUM(species_count) / SUM(area_km2), 2) as species_per_km2
+        FROM species_per_ecosystem
+        WHERE ecosystem_type IS NOT NULL
+        GROUP BY ecosystem_type
+        ORDER BY total_species DESC;
+        """
+    )
+    return ecosystem_types, species_per_ecosystem, species_points
+
+
+@app.cell
+def _(columns, information_schema, mo):
+    # First, let's see what columns are actually in the ecosystem data
+    ecosystem_columns = mo.sql("""
+        -- Check the column names in the ecosystem_types table
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'ecosystem_types'
+    """)
+    ecosystem_columns
     return
 
 
-@app.cell(column=5)
-def _():
+@app.cell
+def _(duckdb, temp_geojson_path):
+    # Create a connection and install/load the spatial extension
+    conn = duckdb.connect(':memory:')
+    conn.execute("INSTALL spatial")
+    conn.execute("LOAD spatial")
+
+    # Now read the GeoJSON file using DuckDB's spatial capabilities
+    ecosystem_df = conn.execute(f"""
+        SELECT * FROM ST_Read('{temp_geojson_path}')
+    """).df()
+
+    # Register the ecosystem dataframe with the existing DuckDB connection
+    conn.register('ecosystem_data', ecosystem_df)
+
     return
 
 
