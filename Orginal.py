@@ -18,13 +18,13 @@ def _():
     import tempfile
     import os
     import duckdb
-    return alt, duckdb, ff, json, mo, os, pd, pl, px, requests, tempfile, time
+    return alt, ff, json, mo, os, pd, pl, px, requests, tempfile, time
 
 
 @app.cell(hide_code=True)
 def _(mo):
     valgt_fil = mo.ui.file_browser(initial_path="/Users/havardhjermstad-sollerud/Downloads")
-    valgt_fil
+    valgt_fil 
     return (valgt_fil,)
 
 
@@ -1051,89 +1051,50 @@ def _(os):
 
 
 @app.cell
-def _(arter_df, mo, temp_geojson_path):
+def _(mo, temp_geojson_path):
     _df = mo.sql(
         f"""
-        -- Install the spatial extension
         INSTALL spatial;
-
-        -- Load the spatial extension
         LOAD spatial;
 
-        -- Load ecosystem data from the temp GeoJSON file
-        CREATE OR REPLACE TABLE ecosystem_types AS
+        CREATE OR REPLACE TABLE ecosystems AS
         SELECT * FROM ST_Read('{temp_geojson_path}');
-
-        -- Extract point geometries from arter_df using lat/long columns
-        CREATE OR REPLACE TABLE species_points AS
-        SELECT 
-            *,
-            ST_Point(longitude, latitude) as geom_point
-        FROM arter_df
-        WHERE latitude IS NOT NULL 
-            AND longitude IS NOT NULL;
-
-        -- Perform spatial join to count species per ecosystem type
-        CREATE OR REPLACE TABLE species_per_ecosystem AS
-        SELECT 
-            e.OBJECTID,
-            e.ecotype as ecosystem_type,
-            COUNT(DISTINCT s.Navn) as species_count,
-            COUNT(*) as observation_count,
-            SUM(CAST(s.Antall AS INTEGER)) as total_individuals,
-            ST_Area(e.geom) / 1000000 as area_km2
-        FROM ecosystem_types e
-        LEFT JOIN species_points s 
-            ON ST_Within(s.geom_point, e.geom)
-        GROUP BY e.OBJECTID, e.ecotype, e.geom
-        ORDER BY species_count DESC;
-
-        -- Summary by ecosystem type
-        SELECT 
-            ecosystem_type,
-            COUNT(DISTINCT OBJECTID) as polygon_count,
-            SUM(species_count) as total_species,
-            SUM(observation_count) as total_observations,
-            SUM(total_individuals) as total_individuals,
-            SUM(area_km2) as total_area_km2,
-            ROUND(SUM(species_count) / SUM(area_km2), 2) as species_per_km2
-        FROM species_per_ecosystem
-        WHERE ecosystem_type IS NOT NULL
-        GROUP BY ecosystem_type
-        ORDER BY total_species DESC;
         """
     )
-    return ecosystem_types, species_per_ecosystem, species_points
+    return (ecosystems,)
 
 
 @app.cell
-def _(columns, information_schema, mo):
-    # First, let's see what columns are actually in the ecosystem data
-    ecosystem_columns = mo.sql("""
-        -- Check the column names in the ecosystem_types table
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name = 'ecosystem_types'
-    """)
-    ecosystem_columns
-    return
-
-
-@app.cell
-def _(duckdb, temp_geojson_path):
-    # Create a connection and install/load the spatial extension
-    conn = duckdb.connect(':memory:')
-    conn.execute("INSTALL spatial")
-    conn.execute("LOAD spatial")
-
-    # Now read the GeoJSON file using DuckDB's spatial capabilities
-    ecosystem_df = conn.execute(f"""
-        SELECT * FROM ST_Read('{temp_geojson_path}')
-    """).df()
-
-    # Register the ecosystem dataframe with the existing DuckDB connection
-    conn.register('ecosystem_data', ecosystem_df)
-
+def _(arter_df, ecosystems, mo):
+    _df = mo.sql(
+        f"""
+        WITH species_points AS (
+            -- Use the existing geometry column (already in UTM 33N)
+            SELECT 
+                *,
+                ST_GeomFromText(geometry) AS geom
+            FROM arter_df
+            WHERE geometry IS NOT NULL 
+              AND geometry != ''
+              AND geometry LIKE 'POINT%'
+        ),
+        filtered_ecosystems AS (
+            -- Pre-filter ecosystems to specific types
+            SELECT 
+                ecotype,
+                geom AS polygon_geom
+            FROM ecosystems
+            WHERE ecotype IN (4)
+        )
+        -- Optimized spatial join using SPATIAL_JOIN operator
+        SELECT 
+            sp.* EXCLUDE (geom, geometry),
+            fe.ecotype AS ecosystem_type
+        FROM species_points sp
+        INNER JOIN filtered_ecosystems fe
+            ON ST_Intersects(sp.geom, fe.polygon_geom)
+        """
+    )
     return
 
 
