@@ -1,10 +1,10 @@
 import marimo
 
 __generated_with = "0.14.17"
-app = marimo.App(width="full")
+app = marimo.App(width="columns")
 
 
-@app.cell
+@app.cell(column=0, hide_code=True)
 def _():
     import marimo as mo
     import polars as pl
@@ -13,17 +13,19 @@ def _():
     import plotly.express as px
     import pandas as pd
     import plotly.figure_factory as ff
-    return alt, ff, mo, pl, px
+    return alt, ff, mo, pd, pl, px
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
-    valgt_fil = mo.ui.file_browser()
+    valgt_fil = mo.ui.file_browser(
+        initial_path=(r"C:\Users\havh\OneDrive - Multiconsult\Dokumenter\Oppdrag")
+    )
     valgt_fil
     return (valgt_fil,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(valgt_fil):
     file_info = valgt_fil.value[0]
     filepath = file_info.path
@@ -33,36 +35,13 @@ def _(valgt_fil):
 
 @app.cell
 def _(filepath, mo):
-    artsdata_df = mo.sql(
+    arter_df = mo.sql(
         f"""
-        SELECT * FROM read_csv('{str(filepath)}');
-        """
+         SELECT * FROM read_csv('{str(filepath)}');
+        """,
+        output=False
     )
-    return (artsdata_df,)
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""### Utforsker artsdata (innebygde marimo utforskere)""")
-    return
-
-
-@app.cell
-def _(artsdata_df):
-    artsdata_df
-    return
-
-
-@app.cell
-def _(artsdata_df, mo):
-    mo.ui.data_explorer(artsdata_df)
-    return
-
-
-@app.cell
-def _(artsdata_df, mo):
-    mo.ui.dataframe(artsdata_df, page_size=30)
-    return
+    return (arter_df,)
 
 
 @app.cell(hide_code=True)
@@ -71,18 +50,9 @@ def _(mo):
     return
 
 
-@app.cell
-def _(artsdata_df, mo):
-    # Husk at du må velge data for at kartene skal fungere!
-
-    artsdata_kart_df = mo.ui.table(artsdata_df)
-    artsdata_kart_df
-    return (artsdata_kart_df,)
-
-
 @app.cell(hide_code=True)
-def _(artsdata_kart_df):
-    artsdata_kart = artsdata_kart_df.value
+def _(artsdata_df):
+    artsdata_kart = artsdata_df.value
     return (artsdata_kart,)
 
 
@@ -91,12 +61,12 @@ def _(mo):
     # Lager UI elementer for å velge kart
     map_style_dropdown = mo.ui.dropdown(
         options=[
-            "carto-positron", 
-            "carto-darkmatter", 
-            "open-street-map", 
+            "carto-positron",
+            "carto-darkmatter",
+            "open-street-map",
         ],
         value="carto-positron",
-        label="Select a base map style:"
+        label="Select a base map style:",
     )
 
     satellite_toggle = mo.ui.checkbox(value=True, label="Show Satellite Imagery")
@@ -118,19 +88,18 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(artsdata_kart, map_style_dropdown, mo, px, satellite_toggle):
-    fig = px.scatter_map(artsdata_kart,
-                         lat="latitude",
-                         lon="longitude",
-                         color="Kategori",       
-                         size="Antall", 
-                         size_max=100,
-                         zoom=10,
-                         hover_name="Navn", 
-                        )
+    fig = px.scatter_map(
+        artsdata_kart,
+        lat="latitude",
+        lon="longitude",
+        color="Kategori",
+        size="Antall",
+        size_max=100,
+        zoom=10,
+        hover_name="Navn",
+    )
 
-    fig.update_layout(map_style=map_style_dropdown.value,
-                        height=1000 )
-
+    fig.update_layout(map_style=map_style_dropdown.value, height=1000)
 
 
     # Conditionally add the satellite layer based on the checkbox's value
@@ -138,18 +107,17 @@ def _(artsdata_kart, map_style_dropdown, mo, px, satellite_toggle):
         fig.update_layout(
             map_layers=[
                 {
-                    "below": 'traces',
+                    "below": "traces",
                     "sourcetype": "raster",
                     "source": [
                         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                    ]
+                    ],
                 }
             ]
         )
     else:
         # An empty list removes any existing raster layers
         fig.update_layout(map_layers=[])
-
 
 
     satelitt_kart = mo.ui.plotly(fig)
@@ -171,7 +139,7 @@ def _(mo):
     aggregation_mode = mo.ui.dropdown(
         options=["Antall observasjoner", "Sum individer"],
         value="Antall observasjoner",
-        label="Aggregation mode:"
+        label="Aggregation mode:",
     )
     aggregation_mode
     return (aggregation_mode,)
@@ -200,18 +168,18 @@ def _(
 
     # Create the hexbin map with conditional parameters
     fig_hex = ff.create_hexbin_mapbox(
-        data_frame=artsdata_kart, 
-        lat="latitude", 
+        data_frame=artsdata_kart,
+        lat="latitude",
         lon="longitude",
         color=color_param,  # None for count, "Antall" for sum
-        nx_hexagon=10, 
-        opacity=0.5, 
+        nx_hexagon=10,
+        opacity=0.5,
         labels={"color": label_text},
-        min_count=1, 
+        min_count=1,
         color_continuous_scale="Viridis",
         show_original_data=True,
         original_data_marker=dict(size=4, opacity=0.6, color="deeppink"),
-        agg_func=agg_func_param  # None for count, np.sum for sum
+        agg_func=agg_func_param,  # None for count, np.sum for sum
     )
 
     # Apply map style settings
@@ -223,13 +191,13 @@ def _(
             mapbox_style="white-bg",
             mapbox_layers=[
                 {
-                    "below": 'traces',
+                    "below": "traces",
                     "sourcetype": "raster",
                     "source": [
                         "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                    ]
+                    ],
                 }
-            ]
+            ],
         )
     else:
         fig_hex.update_layout(mapbox_layers=[])
@@ -239,25 +207,72 @@ def _(
     return
 
 
-@app.cell(hide_code=True)
+@app.cell(column=1, hide_code=True)
+def _(mo):
+    mo.md(r"""### Utforsker artsdata (innebygde marimo utforskere)""")
+    return
+
+
+@app.cell
+def _(arter_df, mo):
+    artsdata_df = mo.ui.table(arter_df, page_size=50)
+    artsdata_df
+    return (artsdata_df,)
+
+
+@app.cell
+def _(artsdata_df, mo):
+    mo.ui.data_explorer(artsdata_df.value)
+    return
+
+
+@app.cell
+def _():
+    return
+
+
+@app.cell(column=2, hide_code=True)
 def _(mo):
     mo.md(r"""### Tid""")
     return
 
 
-@app.cell
-def _(artsdata_df, mo):
-    # Husk at du må velge data for at kartene skal fungere!
-
-    artsdata_tid_df = mo.ui.table(artsdata_df)
-    artsdata_tid_df
-    return (artsdata_tid_df,)
-
-
-@app.cell
-def _(artsdata_tid_df):
-    artsdata_tid = artsdata_tid_df.value
+@app.cell(hide_code=True)
+def _(artsdata_df):
+    artsdata_tid = artsdata_df.value
     return (artsdata_tid,)
+
+
+@app.cell(hide_code=True)
+def _(alt, artsdata_tid, mo, pl, v):
+    # Group by date and sum the number of individuals
+    individuals_by_date = artsdata_tid.group_by(
+        pl.col('Observert dato').dt.date().alias('date')
+    ).agg([
+        pl.len().alias('observation_count'),  # Using pl.len() as requested
+        pl.col('Antall').sum().alias('individual_count')  # Sum of individuals
+    ]).sort('date')
+    v
+    # Create the Altair chart for individuals
+    chart_tid = alt.Chart(individuals_by_date).mark_line(point=True).encode(
+        x=alt.X('date:T', 
+                title='Dato',
+                axis=alt.Axis(format='%Y')),
+        y=alt.Y('individual_count:Q',
+                title='Antall individer'),
+        tooltip=[
+            alt.Tooltip('date:T', title='Dato', format='%d %B %Y'),
+            alt.Tooltip('individual_count:Q', title='Antall individer'),
+            alt.Tooltip('observation_count:Q', title='Antall observasjoner')
+        ]
+    ).properties(
+        width=900,
+        height=400,
+        title='Antall individer observert over tid'
+    ).interactive()
+
+    mo.ui.altair_chart(chart_tid)
+    return
 
 
 @app.cell(hide_code=True)
@@ -376,7 +391,7 @@ def _(alt, artsdata_tid, mo, pl, toggle, window_size):
     return
 
 
-@app.cell(hide_code=True)
+@app.cell(column=3, hide_code=True)
 def _(mo):
     mo.md(r"""### Figurer""")
     return
@@ -822,6 +837,77 @@ def _(alt, artsdata_fg, mo):
 @app.cell(hide_code=True)
 def _(figur_atferd, mo):
     mo.vstack([figur_atferd, mo.ui.table(figur_atferd.value)])
+    return
+
+
+@app.cell(column=4, hide_code=True)
+def _(arter_df, mo, pd):
+    # Extract coordinates from geometry column with better error handling
+    coords_extracted = mo.sql("""
+        SELECT 
+            TRY_CAST(regexp_extract(geometry, 'POINT \\(([0-9.]+)', 1) AS DOUBLE) as x,
+            TRY_CAST(regexp_extract(geometry, 'POINT \\([0-9.]+ ([0-9.]+)', 1) AS DOUBLE) as y
+        FROM arter_df
+        WHERE geometry IS NOT NULL 
+        AND geometry != ''
+        AND geometry LIKE 'POINT%'
+    """)
+
+    # Calculate min/max values, filtering out NULL coordinates
+    bbox_stats = mo.sql("""
+        SELECT 
+            MIN(x) as xmin,
+            MAX(x) as xmax,
+            MIN(y) as ymin,
+            MAX(y) as ymax
+        FROM coords_extracted
+        WHERE x IS NOT NULL AND y IS NOT NULL
+    """)
+
+    # Convert to pandas DataFrame if needed and extract values
+
+    if hasattr(bbox_stats, 'to_pandas'):
+        bbox_df = bbox_stats.to_pandas()
+    else:
+        bbox_df = pd.DataFrame(bbox_stats)
+
+    # Extract values and add 10% buffer
+    xmin = float(bbox_df['xmin'].values[0])
+    xmax = float(bbox_df['xmax'].values[0])
+    ymin = float(bbox_df['ymin'].values[0])
+    ymax = float(bbox_df['ymax'].values[0])
+
+    x_buffer = (xmax - xmin) * 0.1
+    y_buffer = (ymax - ymin) * 0.1
+
+    bbox = {
+        'xmin': xmin - x_buffer,
+        'ymin': ymin - y_buffer,
+        'xmax': xmax + x_buffer,
+        'ymax': ymax + y_buffer
+    }
+
+    # Create WKT polygon for the bounding box
+    bbox_wkt = f"POLYGON(({bbox['xmin']} {bbox['ymin']}, {bbox['xmax']} {bbox['ymin']}, {bbox['xmax']} {bbox['ymax']}, {bbox['xmin']} {bbox['ymax']}, {bbox['xmin']} {bbox['ymin']}))"
+
+    mo.md(f"""
+    ### Bounding Box UTM Zone 33N (EPSG:25833)
+    - X Min: {bbox['xmin']:.0f}
+    - Y Min: {bbox['ymin']:.0f}  
+    - X Max: {bbox['xmax']:.0f}
+    - Y Max: {bbox['ymax']:.0f}
+    - Area: {(bbox['xmax']-bbox['xmin'])*(bbox['ymax']-bbox['ymin'])/1000000:.1f} km²
+
+    ### WKT Polygon
+    ```
+    {bbox_wkt}
+    ```
+    """)
+    return (coords_extracted,)
+
+
+@app.cell(column=5)
+def _():
     return
 
 

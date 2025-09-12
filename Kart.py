@@ -17,7 +17,9 @@ def _():
 
 @app.cell
 def _(mo):
-    valgt_fil = mo.ui.file_browser()
+    valgt_fil = mo.ui.file_browser(
+        initial_path=r"C:\Users\havh\OneDrive - Multiconsult\Dokumenter\Oppdrag"
+    )
     valgt_fil
     return (valgt_fil,)
 
