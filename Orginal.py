@@ -18,7 +18,24 @@ def _():
     import tempfile
     import os
     import duckdb
-    return alt, ff, json, mo, os, pd, pl, px, requests, tempfile, time
+    import pyproj
+    import plotly.graph_objects as go
+
+    return (
+        alt,
+        ff,
+        go,
+        json,
+        mo,
+        os,
+        pd,
+        pl,
+        px,
+        pyproj,
+        requests,
+        tempfile,
+        time,
+    )
 
 
 @app.cell(hide_code=True)
@@ -36,7 +53,7 @@ def _(valgt_fil):
     return (filepath,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(filepath, mo):
     arter_df = mo.sql(
         f"""
@@ -44,7 +61,8 @@ def _(filepath, mo):
         * EXCLUDE (Antall),
         TRY_CAST(Antall AS INTEGER) AS Antall
         FROM read_csv('{filepath}')
-        """
+        """,
+        output=False
     )
     return (arter_df,)
 
@@ -246,6 +264,12 @@ def _(artsdata_df):
     return (artsdata_tid,)
 
 
+@app.cell
+def _(mo):
+    mo.md(r"""#### Arter pr. år (mangler std.error, som for fig under)""")
+    return
+
+
 @app.cell(hide_code=True)
 def _(alt, artsdata_tid, mo, pl):
     # Group by year and sum the number of individuals
@@ -278,6 +302,12 @@ def _(alt, artsdata_tid, mo, pl):
     )
 
     mo.ui.altair_chart(chart_tid)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""#### Gj.snitt obs/individer pr. måned for hele datasettet""")
     return
 
 
@@ -777,6 +807,25 @@ def _(
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""#### Atferd""")
+    return
+
+
+@app.cell
+def _(alt, artsdata_fg, mo):
+    atferd_figur = mo.ui.altair_chart(
+        alt.Chart(artsdata_fg)
+        .mark_bar()
+        .encode(x="Navn", y="Antall", color="Atferd", tooltip=["Navn", "Antall", "Atferd"])
+        .properties(width=1500, height=400)
+    )
+
+    atferd_figur
+    return
+
+
 @app.cell(column=4, hide_code=True)
 def _(mo):
     mo.md(r"""## Overlagsanalyse mot hovedøkosystemkartet""")
@@ -833,8 +882,10 @@ def _(arter_df, mo, pd):
 @app.cell(hide_code=True)
 def _(
     area_km2,
+    go,
     map_style_dropdown,
     mo,
+    pyproj,
     satellite_toggle,
     xmax,
     xmin,
@@ -842,9 +893,6 @@ def _(
     ymin,
 ):
     # Convert UTM bounding box corners to lat/lon for map display
-    import pyproj
-    import plotly.graph_objects as go
-
 
     # Create transformer from UTM Zone 33N to WGS84
     transformer = pyproj.Transformer.from_crs("EPSG:25833", "EPSG:4326", always_xy=True)
@@ -884,12 +932,18 @@ def _(
     center_lon = sum(bbox_lons[:-1]) / 4
     center_lat = sum(bbox_lats[:-1]) / 4
 
+    # Set zoom level - higher values zoom in more (typically 0-20)
+    # zoom = 9  # City level
+    # zoom = 12  # Neighborhood level  
+    # zoom = 15  # Street level
+    zoom_level = 7
+
     # Update layout with map settings
     fig_map_bbox.update_layout(
         map=dict(
             style=map_style_dropdown.value,
             center=dict(lat=center_lat, lon=center_lon),
-            zoom=9
+            zoom=zoom_level
         ),
         height=700,
         title='UTM Zone 33N Bounding Box on Map',
