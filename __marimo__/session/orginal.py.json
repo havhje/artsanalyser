@@ -6,7 +6,7 @@
   "cells": [
     {
       "id": "Hbol",
-      "code_hash": "b89ab4c0e2c45356607ac4b4d609e71d",
+      "code_hash": "6480ea1a55a02011590890b72ac7426f",
       "outputs": [
         {
           "type": "data",
@@ -374,11 +374,17 @@
         {
           "type": "error",
           "ename": "exception",
-          "evalue": "An ancestor raised an exception (TypeError): ",
+          "evalue": "Name `artsdata_fg` is not defined. It was expected to be defined in ",
           "traceback": []
         }
       ],
-      "console": []
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;/Users/havardhjermstad-sollerud/Documents/Kodeprosjekter/marimo/artsanalyser/artsanalyser/.venv/lib/python3.11/site-packages/marimo/_runtime/executor.py&quot;</span>, line <span class=\"m\">138</span>, in <span class=\"n\">execute_cell</span>\n<span class=\"w\">    </span><span class=\"n\">exec</span><span class=\"p\">(</span><span class=\"n\">cell</span><span class=\"o\">.</span><span class=\"n\">body</span><span class=\"p\">,</span> <span class=\"n\">glbls</span><span class=\"p\">)</span>\n  File <span class=\"nb\">&quot;/var/folders/47/6cq9lh314kv4fz6xk72gcz3r0000gn/T/marimo_75409/__marimo__cell_xXTn_.py&quot;</span>, line <span class=\"m\">2</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">aggregated_data</span> <span class=\"o\">=</span> <span class=\"n\">artsdata_fg</span><span class=\"o\">.</span><span class=\"n\">group_by</span><span class=\"p\">(</span><span class=\"s2\">&quot;Navn&quot;</span><span class=\"p\">)</span><span class=\"o\">.</span><span class=\"n\">agg</span><span class=\"p\">(</span><span class=\"n\">pl</span><span class=\"o\">.</span><span class=\"n\">col</span><span class=\"p\">(</span><span class=\"s2\">&quot;Antall&quot;</span><span class=\"p\">)</span><span class=\"o\">.</span><span class=\"n\">sum</span><span class=\"p\">()</span><span class=\"o\">.</span><span class=\"n\">alias</span><span class=\"p\">(</span><span class=\"s2\">&quot;Total&quot;</span><span class=\"p\">))</span>\n<span class=\"w\">                      </span><span class=\"pm\">^^^^^^^^^^^</span>\n<span class=\"gr\">NameError</span>: <span class=\"n\">name &#39;artsdata_fg&#39; is not defined</span>\n</pre></div>\n</span>"
+        }
+      ]
     },
     {
       "id": "AjVT",
@@ -387,11 +393,17 @@
         {
           "type": "error",
           "ename": "exception",
-          "evalue": "An ancestor raised an exception (TypeError): ",
+          "evalue": "Name `data_with_info` is not defined. It was expected to be defined in ",
           "traceback": []
         }
       ],
-      "console": []
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;/Users/havardhjermstad-sollerud/Documents/Kodeprosjekter/marimo/artsanalyser/artsanalyser/.venv/lib/python3.11/site-packages/marimo/_runtime/executor.py&quot;</span>, line <span class=\"m\">138</span>, in <span class=\"n\">execute_cell</span>\n<span class=\"w\">    </span><span class=\"n\">exec</span><span class=\"p\">(</span><span class=\"n\">cell</span><span class=\"o\">.</span><span class=\"n\">body</span><span class=\"p\">,</span> <span class=\"n\">glbls</span><span class=\"p\">)</span>\n  File <span class=\"nb\">&quot;/var/folders/47/6cq9lh314kv4fz6xk72gcz3r0000gn/T/marimo_75409/__marimo__cell_AjVT_.py&quot;</span>, line <span class=\"m\">25</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">data_with_priority</span> <span class=\"o\">=</span> <span class=\"n\">data_with_info</span><span class=\"o\">.</span><span class=\"n\">with_columns</span><span class=\"p\">(</span>\n<span class=\"w\">                         </span><span class=\"pm\">^^^^^^^^^^^^^^</span>\n<span class=\"gr\">NameError</span>: <span class=\"n\">name &#39;data_with_info&#39; is not defined</span>\n</pre></div>\n</span>"
+        }
+      ]
     },
     {
       "id": "pHFh",
@@ -400,11 +412,17 @@
         {
           "type": "error",
           "ename": "exception",
-          "evalue": "An ancestor raised an exception (TypeError): ",
+          "evalue": "Name `sorted_data` is not defined. It was expected to be defined in ",
           "traceback": []
         }
       ],
-      "console": []
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;/Users/havardhjermstad-sollerud/Documents/Kodeprosjekter/marimo/artsanalyser/artsanalyser/.venv/lib/python3.11/site-packages/marimo/_runtime/executor.py&quot;</span>, line <span class=\"m\">138</span>, in <span class=\"n\">execute_cell</span>\n<span class=\"w\">    </span><span class=\"n\">exec</span><span class=\"p\">(</span><span class=\"n\">cell</span><span class=\"o\">.</span><span class=\"n\">body</span><span class=\"p\">,</span> <span class=\"n\">glbls</span><span class=\"p\">)</span>\n  File <span class=\"nb\">&quot;/var/folders/47/6cq9lh314kv4fz6xk72gcz3r0000gn/T/marimo_75409/__marimo__cell_pHFh_.py&quot;</span>, line <span class=\"m\">29</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">actual_categories</span> <span class=\"o\">=</span> <span class=\"n\">sorted_data</span><span class=\"p\">[</span><span class=\"s2\">&quot;Kategori&quot;</span><span class=\"p\">]</span><span class=\"o\">.</span><span class=\"n\">unique</span><span class=\"p\">()</span><span class=\"o\">.</span><span class=\"n\">to_list</span><span class=\"p\">()</span>\n<span class=\"w\">                        </span><span class=\"pm\">^^^^^^^^^^^</span>\n<span class=\"gr\">NameError</span>: <span class=\"n\">name &#39;sorted_data&#39; is not defined</span>\n</pre></div>\n</span>"
+        }
+      ]
     },
     {
       "id": "NCOB",
@@ -413,7 +431,7 @@
         {
           "type": "error",
           "ename": "exception",
-          "evalue": "An ancestor raised an exception (TypeError): ",
+          "evalue": "An ancestor raised an exception (MarimoExceptionRaisedError): ",
           "traceback": []
         }
       ],
@@ -439,11 +457,17 @@
         {
           "type": "error",
           "ename": "exception",
-          "evalue": "An ancestor raised an exception (TypeError): ",
+          "evalue": "Name `artsdata_fg` is not defined. It was expected to be defined in ",
           "traceback": []
         }
       ],
-      "console": []
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;/Users/havardhjermstad-sollerud/Documents/Kodeprosjekter/marimo/artsanalyser/artsanalyser/.venv/lib/python3.11/site-packages/marimo/_runtime/executor.py&quot;</span>, line <span class=\"m\">138</span>, in <span class=\"n\">execute_cell</span>\n<span class=\"w\">    </span><span class=\"n\">exec</span><span class=\"p\">(</span><span class=\"n\">cell</span><span class=\"o\">.</span><span class=\"n\">body</span><span class=\"p\">,</span> <span class=\"n\">glbls</span><span class=\"p\">)</span>\n  File <span class=\"nb\">&quot;/var/folders/47/6cq9lh314kv4fz6xk72gcz3r0000gn/T/marimo_75409/__marimo__cell_TRpd_.py&quot;</span>, line <span class=\"m\">2</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">alt</span><span class=\"o\">.</span><span class=\"n\">Chart</span><span class=\"p\">(</span><span class=\"n\">artsdata_fg</span><span class=\"p\">)</span>\n<span class=\"w\">              </span><span class=\"pm\">^^^^^^^^^^^</span>\n<span class=\"gr\">NameError</span>: <span class=\"n\">name &#39;artsdata_fg&#39; is not defined</span>\n</pre></div>\n</span>"
+        }
+      ]
     },
     {
       "id": "TXez",
@@ -452,11 +476,17 @@
         {
           "type": "error",
           "ename": "exception",
-          "evalue": "An ancestor raised an exception (TypeError): ",
+          "evalue": "Name `figur_atferd` is not defined. It was expected to be defined in ",
           "traceback": []
         }
       ],
-      "console": []
+      "console": [
+        {
+          "type": "stream",
+          "name": "stderr",
+          "text": "<span class=\"codehilite\"><div class=\"highlight\"><pre><span></span><span class=\"gt\">Traceback (most recent call last):</span>\n  File <span class=\"nb\">&quot;/Users/havardhjermstad-sollerud/Documents/Kodeprosjekter/marimo/artsanalyser/artsanalyser/.venv/lib/python3.11/site-packages/marimo/_runtime/executor.py&quot;</span>, line <span class=\"m\">139</span>, in <span class=\"n\">execute_cell</span>\n<span class=\"w\">    </span><span class=\"k\">return</span> <span class=\"nb\">eval</span><span class=\"p\">(</span><span class=\"n\">cell</span><span class=\"o\">.</span><span class=\"n\">last_expr</span><span class=\"p\">,</span> <span class=\"n\">glbls</span><span class=\"p\">)</span>\n<span class=\"w\">           </span><span class=\"pm\">^^^^^^^^^^^^^^^^^^^^^^^^^^^</span>\n  File <span class=\"nb\">&quot;/var/folders/47/6cq9lh314kv4fz6xk72gcz3r0000gn/T/marimo_75409/__marimo__cell_TXez_.py&quot;</span>, line <span class=\"m\">1</span>, in <span class=\"n\">&lt;module&gt;</span>\n<span class=\"w\">    </span><span class=\"n\">mo</span><span class=\"o\">.</span><span class=\"n\">vstack</span><span class=\"p\">([</span><span class=\"n\">figur_atferd</span><span class=\"p\">,</span> <span class=\"n\">mo</span><span class=\"o\">.</span><span class=\"n\">ui</span><span class=\"o\">.</span><span class=\"n\">table</span><span class=\"p\">(</span><span class=\"n\">figur_atferd</span><span class=\"o\">.</span><span class=\"n\">value</span><span class=\"p\">)])</span>\n<span class=\"w\">               </span><span class=\"pm\">^^^^^^^^^^^^</span>\n<span class=\"gr\">NameError</span>: <span class=\"n\">name &#39;figur_atferd&#39; is not defined</span>\n</pre></div>\n</span>"
+        }
+      ]
     },
     {
       "id": "dNNg",
@@ -472,32 +502,13 @@
       "console": []
     },
     {
-      "id": "yCnT",
-      "code_hash": "45870be2ea015137645e3e4b7b8552c7",
-      "outputs": [
-        {
-          "type": "data",
-          "data": {
-            "text/html": "<span class=\"markdown prose dark:prose-invert\"><h3 id=\"spatial-analysis-setup\">Spatial Analysis Setup</h3>\n<span class=\"paragraph\">DuckDB spatial extension has been loaded and is ready for ecosystem analysis.</span></span>"
-          }
-        }
-      ],
-      "console": [
-        {
-          "type": "stream",
-          "name": "stderr",
-          "text": "'LOAD spatial' contains unsupported syntax. Falling back to parsing as a 'Command'.\n"
-        }
-      ]
-    },
-    {
       "id": "wlCL",
-      "code_hash": "3a4b13774322ebb366426e3a0cd1fc91",
+      "code_hash": "04f57a657b8575a0cdbfae4892d5acdf",
       "outputs": [
         {
           "type": "data",
           "data": {
-            "text/html": "<span class=\"markdown prose dark:prose-invert\"><h3 id=\"bounding-box-utm-zone-33n-epsg25833\">Bounding Box UTM Zone 33N (EPSG:25833)</h3>\n<ul>\n<li>X Min: 463491</li>\n<li>Y Min: 7437830  </li>\n<li>X Max: 528604</li>\n<li>Y Max: 7476617</li>\n<li>Area: 2525.6 km\u00b2</li>\n</ul>\n<h3 id=\"wkt-polygon\">WKT Polygon</h3>\n<div class=\"language-text codehilite\"><pre><span></span><code>POLYGON((463490.9 7437829.7, 528604.1 7437829.7, 528604.1 7476617.3, 463490.9 7476617.3, 463490.9 7437829.7))\n</code></pre></div>\n<h3 id=\"debug-check-coordinate-system\">Debug: Check coordinate system</h3>\n<span class=\"paragraph\">The coordinates appear to be in UTM Zone 33N (EPSG:25833) which is correct for Norway.\nEcosystem service should accept this coordinate system.</span></span>"
+            "text/html": "<span class=\"markdown prose dark:prose-invert\"><h3 id=\"bounding-box-utm-zone-33n-epsg25833\">Bounding Box UTM Zone 33N (EPSG:25833)</h3>\n<ul>\n<li>X Min: 463491</li>\n<li>Y Min: 7437830  </li>\n<li>X Max: 528604</li>\n<li>Y Max: 7476617</li>\n<li>Area: 2525.6 km\u00b2</li>\n</ul>\n<h3 id=\"wkt-polygon\">WKT Polygon</h3>\n<div class=\"language-text codehilite\"><pre><span></span><code>POLYGON((463490.9 7437829.7, 528604.1 7437829.7, 528604.1 7476617.3, 463490.9 7476617.3, 463490.9 7437829.7))\n</code></pre></div></span>"
           }
         }
       ],
