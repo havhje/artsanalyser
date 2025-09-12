@@ -840,7 +840,13 @@ def _(figur_atferd, mo):
     return
 
 
-@app.cell(column=4, hide_code=True)
+@app.cell(column=4)
+def _(mo):
+    mo.md(r"""## Overlangsanalyse mot hovedøkosystemkartet""")
+    return
+
+
+@app.cell(hide_code=True)
 def _(arter_df, mo, pd):
     # Extract coordinates from geometry column with better error handling
     coords_extracted = mo.sql("""
