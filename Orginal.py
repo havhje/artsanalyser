@@ -20,7 +20,6 @@ def _():
     import duckdb
     import pyproj
     import plotly.graph_objects as go
-
     return (
         alt,
         ff,
@@ -40,8 +39,10 @@ def _():
 
 @app.cell(hide_code=True)
 def _(mo):
-    valgt_fil = mo.ui.file_browser(initial_path="/Users/havardhjermstad-sollerud/Downloads")
-    valgt_fil 
+    valgt_fil = mo.ui.file_browser(
+        initial_path=r"C:\Users\havh\OneDrive - Multiconsult\Dokumenter\Oppdrag"
+    )
+    valgt_fil
     return (valgt_fil,)
 
 
@@ -62,7 +63,7 @@ def _(filepath, mo):
         TRY_CAST(Antall AS INTEGER) AS Antall
         FROM read_csv('{filepath}')
         """,
-        output=False
+        output=False,
     )
     return (arter_df,)
 
@@ -234,6 +235,12 @@ def _(mo):
     return
 
 
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""## Husk å velge data for at figurer skal funke""")
+    return
+
+
 @app.cell
 def _(arter_df, mo):
     artsdata_df = mo.ui.table(arter_df, page_size=50)
@@ -278,7 +285,9 @@ def _(alt, artsdata_tid, mo, pl):
         .agg(
             [
                 pl.len().alias("observation_count"),  # Using pl.len() as requested
-                pl.col("Antall").sum().alias("individual_count"),  # Sum of individuals
+                pl.col("Antall")
+                .sum()
+                .alias("individual_count"),  # Sum of individuals
             ]
         )
         .sort("year")
@@ -297,7 +306,9 @@ def _(alt, artsdata_tid, mo, pl):
                 alt.Tooltip("observation_count:Q", title="Antall observasjoner"),
             ],
         )
-        .properties(width=900, height=400, title="Antall individer observert per år")
+        .properties(
+            width=900, height=400, title="Antall individer observert per år"
+        )
         .interactive()
     )
 
@@ -314,7 +325,13 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     toggle = mo.ui.switch(label="Individer", value=False)
-    window_size = mo.ui.slider(start=1, stop=30, step=1, show_value=True, label="Antall dager i rullende gj.snitt")
+    window_size = mo.ui.slider(
+        start=1,
+        stop=30,
+        step=1,
+        show_value=True,
+        label="Antall dager i rullende gj.snitt",
+    )
     window_size
     return toggle, window_size
 
@@ -326,7 +343,10 @@ def _(alt, artsdata_tid, mo, pl, toggle, window_size):
             [
                 pl.col("Observert dato").dt.date().alias("date"),
                 pl.col("Observert dato").dt.year().alias("year"),
-                pl.col("Antall").cast(pl.Int64, strict=False).fill_null(1).alias("ind_count"),
+                pl.col("Antall")
+                .cast(pl.Int64, strict=False)
+                .fill_null(1)
+                .alias("ind_count"),
             ]
         )
         .group_by("date")
@@ -338,7 +358,13 @@ def _(alt, artsdata_tid, mo, pl, toggle, window_size):
             ]
         )
         # Create a synthetic date using year 2024 for all data to show pattern
-        .with_columns([pl.date(2024, pl.col("date").dt.month(), pl.col("date").dt.day()).alias("common_date")])
+        .with_columns(
+            [
+                pl.date(
+                    2024, pl.col("date").dt.month(), pl.col("date").dt.day()
+                ).alias("common_date")
+            ]
+        )
         .group_by("common_date")
         .agg(
             [
@@ -356,11 +382,19 @@ def _(alt, artsdata_tid, mo, pl, toggle, window_size):
         .with_columns(
             [
                 # Rolling averages
-                pl.col("avg_daily_obs").rolling_mean(window_size.value, center=True).alias("rolling_avg_obs"),
-                pl.col("avg_daily_ind").rolling_mean(window_size.value, center=True).alias("rolling_avg_ind"),
+                pl.col("avg_daily_obs")
+                .rolling_mean(window_size.value, center=True)
+                .alias("rolling_avg_obs"),
+                pl.col("avg_daily_ind")
+                .rolling_mean(window_size.value, center=True)
+                .alias("rolling_avg_ind"),
                 # Standard errors
-                (pl.col("std_daily_obs") / pl.col("n_years").sqrt()).alias("se_obs"),
-                (pl.col("std_daily_ind") / pl.col("n_years").sqrt()).alias("se_ind"),
+                (pl.col("std_daily_obs") / pl.col("n_years").sqrt()).alias(
+                    "se_obs"
+                ),
+                (pl.col("std_daily_ind") / pl.col("n_years").sqrt()).alias(
+                    "se_ind"
+                ),
             ]
         )
         .with_columns(
@@ -380,8 +414,12 @@ def _(alt, artsdata_tid, mo, pl, toggle, window_size):
             alt.Chart(daily_stats)
             .mark_area(opacity=0.3, color="lightblue")
             .encode(
-                x=alt.X("common_date:T", title="Dato", axis=alt.Axis(format="%d %b")),
-                y=alt.Y("lower_obs:Q", title="Rullerende gjennomsnitt (observasjoner)"),
+                x=alt.X(
+                    "common_date:T", title="Dato", axis=alt.Axis(format="%d %b")
+                ),
+                y=alt.Y(
+                    "lower_obs:Q", title="Rullerende gjennomsnitt (observasjoner)"
+                ),
                 y2="upper_obs:Q",
             )
             + alt.Chart(daily_stats)
@@ -391,7 +429,11 @@ def _(alt, artsdata_tid, mo, pl, toggle, window_size):
                 y="rolling_avg_obs:Q",
                 tooltip=[
                     alt.Tooltip("common_date:T", title="Dato", format="%d %B"),
-                    alt.Tooltip("rolling_avg_obs:Q", title="Rullerende gjennomsnitt", format=".1f"),
+                    alt.Tooltip(
+                        "rolling_avg_obs:Q",
+                        title="Rullerende gjennomsnitt",
+                        format=".1f",
+                    ),
                     alt.Tooltip("se_obs:Q", title="Standardfeil", format=".2f"),
                 ],
             )
@@ -406,18 +448,30 @@ def _(alt, artsdata_tid, mo, pl, toggle, window_size):
             alt.Chart(daily_stats)
             .mark_area(opacity=0.3, color="peachpuff")
             .encode(
-                x=alt.X("common_date:T", title="Dato", axis=alt.Axis(format="%d %b")),
-                y=alt.Y("lower_ind:Q", title="Rullerende gjennomsnitt (individer)"),
+                x=alt.X(
+                    "common_date:T", title="Dato", axis=alt.Axis(format="%d %b")
+                ),
+                y=alt.Y(
+                    "lower_ind:Q", title="Rullerende gjennomsnitt (individer)"
+                ),
                 y2="upper_ind:Q",
             )
             + alt.Chart(daily_stats)
-            .mark_line(point={"filled": True, "fill": "darkorange", "size": 20}, size=2, color="darkorange")
+            .mark_line(
+                point={"filled": True, "fill": "darkorange", "size": 20},
+                size=2,
+                color="darkorange",
+            )
             .encode(
                 x="common_date:T",
                 y="rolling_avg_ind:Q",
                 tooltip=[
                     alt.Tooltip("common_date:T", title="Dato", format="%d %B"),
-                    alt.Tooltip("rolling_avg_ind:Q", title="Rullerende gjennomsnitt", format=".1f"),
+                    alt.Tooltip(
+                        "rolling_avg_ind:Q",
+                        title="Rullerende gjennomsnitt",
+                        format=".1f",
+                    ),
                     alt.Tooltip("se_ind:Q", title="Standardfeil", format=".2f"),
                 ],
             )
@@ -443,7 +497,7 @@ def _(mo):
     dataframe_selector = mo.ui.dropdown(
         options=["Alle arter", "Kun arter i valgte økosystemtyper"],
         value="Alle arter",  # Default to all species
-        label="Velg datasett:"
+        label="Velg datasett:",
     )
 
     # Display the selector
@@ -452,10 +506,10 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(arter_df, dataframe_selector, okosystem_arter_df):
+def _(artsdata_df, dataframe_selector, okosystem_arter_df):
     # Assign the selected dataframe to artsdata_fg based on the dropdown value
     if dataframe_selector.value == "Alle arter":
-        artsdata_fg = arter_df
+        artsdata_fg = artsdata_df.value
     else:
         artsdata_fg = okosystem_arter_df.value
     return (artsdata_fg,)
@@ -465,13 +519,19 @@ def _(arter_df, dataframe_selector, okosystem_arter_df):
 def _(mo):
     # Cell 1: Create dropdowns (unchanged)
     metric_dropdown = mo.ui.dropdown(
-        options=["Antall individer", "Antall observasjoner", "Gjennomsnittelig antall individer pr. observasjon"],
+        options=[
+            "Antall individer",
+            "Antall observasjoner",
+            "Gjennomsnittelig antall individer pr. observasjon",
+        ],
         value="Antall individer",
         label="Velg metrikk",
     )
 
     grouping_dropdown = mo.ui.dropdown(
-        options=["Art (kategori)", "Familie", "Orden"], value="Art (kategori)", label="Sorter etter"
+        options=["Art (kategori)", "Familie", "Orden"],
+        value="Art (kategori)",
+        label="Sorter etter",
     )
 
     mo.vstack([metric_dropdown, grouping_dropdown])
@@ -495,13 +555,17 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(artsdata_fg, metric_dropdown, pl):
     if metric_dropdown.value == "Antall individer":
-        aggregated_data = artsdata_fg.group_by("Navn").agg(pl.col("Antall").sum().alias("Total"))
+        aggregated_data = artsdata_fg.group_by("Navn").agg(
+            pl.col("Antall").sum().alias("Total")
+        )
         y_label = "Antall individer"
     elif metric_dropdown.value == "Antall observasjoner":
         aggregated_data = artsdata_fg.group_by("Navn").agg(pl.len().alias("Total"))
         y_label = "Antall observasjoner"
     else:
-        aggregated_data = artsdata_fg.group_by("Navn").agg(pl.col("Antall").mean().alias("Total"))
+        aggregated_data = artsdata_fg.group_by("Navn").agg(
+            pl.col("Antall").mean().alias("Total")
+        )
         y_label = "Gjennomsnitt individer per observasjon"
 
     # Join with species information - INCLUDING THE SPECIAL CATEGORIES
@@ -549,12 +613,16 @@ def _(data_with_info, grouping_dropdown, pl):
         # Add sort priority column
         data_with_priority = data_with_info.with_columns(
             pl.col("Kategori")
-            .map_elements(lambda x: kategori_priority.get(x, 999), return_dtype=pl.Int32)
+            .map_elements(
+                lambda x: kategori_priority.get(x, 999), return_dtype=pl.Int32
+            )
             .alias("kategori_priority")
         )
 
         # Sort by category priority first, then by Total within each group
-        sorted_data = data_with_priority.sort(["kategori_priority", "Total"], descending=[False, True])
+        sorted_data = data_with_priority.sort(
+            ["kategori_priority", "Total"], descending=[False, True]
+        )
 
         # Remove the temporary priority column
         sorted_data = sorted_data.drop("kategori_priority")
@@ -564,33 +632,43 @@ def _(data_with_info, grouping_dropdown, pl):
         color_field = "Familie"
         color_title = "Familie"
         # Sort alphabetically by Familie, then by Total within each group
-        sorted_data = data_with_info.sort([sort_field, "Total"], descending=[False, True])
+        sorted_data = data_with_info.sort(
+            [sort_field, "Total"], descending=[False, True]
+        )
 
     else:
         sort_field = "Orden"
         color_field = "Orden"
         color_title = "Orden"
         # Sort alphabetically by Orden, then by Total within each group
-        sorted_data = data_with_info.sort([sort_field, "Total"], descending=[False, True])
+        sorted_data = data_with_info.sort(
+            [sort_field, "Total"], descending=[False, True]
+        )
 
     # Calculate group totals for annotations
     group_totals = sorted_data.group_by(sort_field).agg(
         [
             pl.col("Total").sum().alias("GroupTotal"),
             pl.col("Navn").count().alias("SpeciesCount"),
-            pl.col("Navn").first().alias("FirstSpecies"),  # To position the annotation
+            pl.col("Navn")
+            .first()
+            .alias("FirstSpecies"),  # To position the annotation
             pl.col("Navn").last().alias("LastSpecies"),
         ]
     )
 
     # Add x-position for each species (for separator lines)
-    sorted_data_with_pos = sorted_data.with_columns(pl.arange(0, sorted_data.height).alias("x_position"))
+    sorted_data_with_pos = sorted_data.with_columns(
+        pl.arange(0, sorted_data.height).alias("x_position")
+    )
 
     # Find group boundaries for separator lines
     group_boundaries = (
         sorted_data_with_pos.group_by(sort_field)
         .agg(pl.col("x_position").max().alias("last_position"))
-        .filter(pl.col("last_position") < sorted_data_with_pos.height - 1)  # Exclude last group
+        .filter(
+            pl.col("last_position") < sorted_data_with_pos.height - 1
+        )  # Exclude last group
         .with_columns((pl.col("last_position") + 0.5).alias("separator_position"))
     )
 
@@ -600,7 +678,11 @@ def _(data_with_info, grouping_dropdown, pl):
     # Get unique values for consistent color ordering
     if grouping_dropdown.value == "Art (kategori)":
         # Use the explicit order for categories
-        unique_groups = [cat for cat in kategori_order if cat in sorted_data[sort_field].unique()]
+        unique_groups = [
+            cat
+            for cat in kategori_order
+            if cat in sorted_data[sort_field].unique()
+        ]
     else:
         # Use alphabetical order for other groupings
         unique_groups = sorted_data[sort_field].unique().sort().to_list()
@@ -661,7 +743,9 @@ def _(
         legend_sort = color_domain  # Explicit sort order for legend
     else:
         # Use default color scheme for Familie and Orden
-        color_scale = alt.Scale(scheme="category20" if len(unique_groups) > 10 else "category10")
+        color_scale = alt.Scale(
+            scheme="category20" if len(unique_groups) > 10 else "category10"
+        )
         legend_sort = unique_groups  # Alphabetical order from Cell 3
 
     # Create color encoding with explicit sort order
@@ -710,19 +794,25 @@ def _(
                 axis=alt.Axis(labelAngle=-45, labelLimit=200, labelOverlap=False),
             ),
             y=alt.Y(
-                "Total", 
-                title=y_label, 
-                scale=alt.Scale(domain=[0, max_value * 1.2])
+                "Total",
+                title=y_label,
+                scale=alt.Scale(domain=[0, max_value * 1.2]),
             ),
             color=color_encoding,
             tooltip=[
                 alt.Tooltip("Navn", title="Art"),
-                alt.Tooltip("Total", title=y_label, format=".2f" if "Gjennomsnitt" in y_label else ".0f"),
+                alt.Tooltip(
+                    "Total",
+                    title=y_label,
+                    format=".2f" if "Gjennomsnitt" in y_label else ".0f",
+                ),
                 alt.Tooltip("Kategori", title="Rødlistestatus"),
                 alt.Tooltip("Familie", title="Familie"),
                 alt.Tooltip("Orden", title="Orden"),
                 alt.Tooltip("Ansvarsarter", title="Ansvarsart"),
-                alt.Tooltip("Andre spesielt hensynskrevende arter", title="Hensynskrevende"),
+                alt.Tooltip(
+                    "Andre spesielt hensynskrevende arter", title="Hensynskrevende"
+                ),
                 alt.Tooltip("Prioriterte arter", title="Prioritert"),
             ],
         )
@@ -731,12 +821,14 @@ def _(
     # --- 2. Conditionally create and add markers based on checkbox ---
     if show_markers.value:
         # Data Transformation for Markers
-        marker_cols = ["Ansvarsarter", "Andre spesielt hensynskrevende arter", "Prioriterte arter"]
+        marker_cols = [
+            "Ansvarsarter",
+            "Andre spesielt hensynskrevende arter",
+            "Prioriterte arter",
+        ]
 
         marker_data = (
-            sorted_data.filter(
-                pl.any_horizontal(pl.col(c) for c in marker_cols)
-            )
+            sorted_data.filter(pl.any_horizontal(pl.col(c) for c in marker_cols))
             .unpivot(
                 index=["Navn", "Total"],
                 on=marker_cols,
@@ -761,10 +853,16 @@ def _(
                     y=alt.Y("y_pos:Q"),
                     shape=alt.Shape(
                         "Status:N",
-                        scale=alt.Scale(domain=marker_cols, range=["circle", "square", "triangle-up"]),
+                        scale=alt.Scale(
+                            domain=marker_cols,
+                            range=["circle", "square", "triangle-up"],
+                        ),
                         legend=alt.Legend(title="Forvaltningsinteresse"),
                     ),
-                    tooltip=[alt.Tooltip("Navn", title="Art"), alt.Tooltip("Status", title="Status")],
+                    tooltip=[
+                        alt.Tooltip("Navn", title="Art"),
+                        alt.Tooltip("Status", title="Status"),
+                    ],
                 )
                 .transform_window(
                     marker_rank="rank()",
@@ -776,7 +874,7 @@ def _(
             )
 
             # Layer the charts with shared Y-scale
-            chart = alt.layer(bars, markers).resolve_scale(y='shared')
+            chart = alt.layer(bars, markers).resolve_scale(y="shared")
         else:
             chart = bars
     else:
@@ -786,9 +884,9 @@ def _(
     # --- 3. Final Chart Configuration ---
     final_chart = (
         chart.properties(
-            width=1600, 
-            height=500, 
-            title=f"{metric_dropdown.value} sortert etter {sort_field.lower()}"
+            width=1600,
+            height=500,
+            title=f"{metric_dropdown.value} sortert etter {sort_field.lower()}",
         )
         .configure_axis(labelFontSize=11, titleFontSize=12)
         .configure_title(fontSize=16, anchor="start")
@@ -818,7 +916,12 @@ def _(alt, artsdata_fg, mo):
     atferd_figur = mo.ui.altair_chart(
         alt.Chart(artsdata_fg)
         .mark_bar()
-        .encode(x="Navn", y="Antall", color="Atferd", tooltip=["Navn", "Antall", "Atferd"])
+        .encode(
+            x="Navn",
+            y="Antall",
+            color="Atferd",
+            tooltip=["Navn", "Antall", "Atferd"],
+        )
         .properties(width=1500, height=400)
     )
 
@@ -895,7 +998,9 @@ def _(
     # Convert UTM bounding box corners to lat/lon for map display
 
     # Create transformer from UTM Zone 33N to WGS84
-    transformer = pyproj.Transformer.from_crs("EPSG:25833", "EPSG:4326", always_xy=True)
+    transformer = pyproj.Transformer.from_crs(
+        "EPSG:25833", "EPSG:4326", always_xy=True
+    )
 
     # Convert bounding box corners to lat/lon
     bbox_corners_utm = [
@@ -903,7 +1008,7 @@ def _(
         (xmax, ymin),
         (xmax, ymax),
         (xmin, ymax),
-        (xmin, ymin)  # Close the polygon
+        (xmin, ymin),  # Close the polygon
     ]
 
     bbox_lons = []
@@ -917,16 +1022,18 @@ def _(
     fig_map_bbox = go.Figure()
 
     # Add the bounding box as a polygon on the map
-    fig_map_bbox.add_trace(go.Scattermap(
-        mode='lines',
-        lon=bbox_lons,
-        lat=bbox_lats,
-        fill='toself',
-        fillcolor='rgba(255, 0, 0, 0.2)',
-        line=dict(width=3, color='red'),
-        name='Bounding Box',
-        text=f'Area: {area_km2:.1f} km²'
-    ))
+    fig_map_bbox.add_trace(
+        go.Scattermap(
+            mode="lines",
+            lon=bbox_lons,
+            lat=bbox_lats,
+            fill="toself",
+            fillcolor="rgba(255, 0, 0, 0.2)",
+            line=dict(width=3, color="red"),
+            name="Bounding Box",
+            text=f"Area: {area_km2:.1f} km²",
+        )
+    )
 
     # Calculate center of bounding box for map centering
     center_lon = sum(bbox_lons[:-1]) / 4
@@ -934,7 +1041,7 @@ def _(
 
     # Set zoom level - higher values zoom in more (typically 0-20)
     # zoom = 9  # City level
-    # zoom = 12  # Neighborhood level  
+    # zoom = 12  # Neighborhood level
     # zoom = 15  # Street level
     zoom_level = 7
 
@@ -943,11 +1050,11 @@ def _(
         map=dict(
             style=map_style_dropdown.value,
             center=dict(lat=center_lat, lon=center_lon),
-            zoom=zoom_level
+            zoom=zoom_level,
         ),
         height=700,
-        title='UTM Zone 33N Bounding Box on Map',
-        showlegend=True
+        title="UTM Zone 33N Bounding Box on Map",
+        showlegend=True,
     )
 
     # Add satellite imagery if toggle is on
@@ -978,7 +1085,9 @@ def _():
 @app.cell(hide_code=True)
 def _(mo, requests, service_url, time, xmax, xmin, ymax, ymin):
     # If envelope works better, here's an updated download function
-    def download_arcgis_utm33_envelope(service_url, layer_id, xmin, ymin, xmax, ymax, max_records=2000):
+    def download_arcgis_utm33_envelope(
+        service_url, layer_id, xmin, ymin, xmax, ymax, max_records=2000
+    ):
         """
         Download GeoJSON data using envelope geometry
         """
@@ -992,7 +1101,7 @@ def _(mo, requests, service_url, time, xmax, xmin, ymax, ymin):
             "inSR": "25833",
             "outSR": "25833",
             "where": "1=1",
-            "f": "json"
+            "f": "json",
         }
 
         # Get total count first
@@ -1028,7 +1137,7 @@ def _(mo, requests, service_url, time, xmax, xmin, ymax, ymin):
                 "returnGeometry": "true",
                 "resultOffset": offset,
                 "resultRecordCount": min(max_records, total_count - offset),
-                "f": "geojson"
+                "f": "geojson",
             }
 
             try:
@@ -1055,6 +1164,7 @@ def _(mo, requests, service_url, time, xmax, xmin, ymax, ymin):
 
         return {"type": "FeatureCollection", "features": all_features}
 
+
     # Try the envelope-based download
     ecosystem_geojson_envelope = download_arcgis_utm33_envelope(
         service_url, 0, xmin, ymin, xmax, ymax
@@ -1068,7 +1178,9 @@ def _(mo, requests, service_url, time, xmax, xmin, ymax, ymin):
 
 @app.cell(hide_code=True)
 def _(ecosystem_geojson_envelope, json, tempfile):
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.geojson', delete=False) as f:
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".geojson", delete=False
+    ) as f:
         json.dump(ecosystem_geojson_envelope, f)
         temp_geojson_path = f.name
     return (temp_geojson_path,)
@@ -1076,7 +1188,7 @@ def _(ecosystem_geojson_envelope, json, tempfile):
 
 @app.cell(hide_code=True)
 def _(os):
-    os.environ['OGR_GEOJSON_MAX_OBJ_SIZE'] = '0'
+    os.environ["OGR_GEOJSON_MAX_OBJ_SIZE"] = "0"
     return
 
 
@@ -1135,7 +1247,7 @@ def _(arter_df, ecosystems, mo):
         INNER JOIN filtered_ecosystems fe
             ON ST_Intersects(sp.geom, fe.polygon_geom)
         """,
-        output=False
+        output=False,
     )
     return (system_arter_df,)
 
