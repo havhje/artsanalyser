@@ -111,6 +111,79 @@ def _(map_style_dropdown, mo, satellite_toggle):
 
 @app.cell(hide_code=True)
 def _(mo):
+    # Create a dropdown to switch between count and sum
+    aggregation_mode = mo.ui.dropdown(
+        options=["Antall observasjoner", "Sum individer"],
+        value="Antall observasjoner",
+        label="Aggregation mode:",
+    )
+    aggregation_mode
+    return (aggregation_mode,)
+
+
+@app.cell(hide_code=True)
+def _(
+    aggregation_mode,
+    artsdata_kart,
+    ff,
+    map_style_dropdown,
+    mo,
+    np,
+    satellite_toggle,
+):
+    # Set parameters based on aggregation mode
+    if aggregation_mode.value == "Antall observasjoner":
+        color_param = None
+        agg_func_param = None
+        label_text = "Antall observasjoner"
+    else:
+        color_param = "Antall"
+        agg_func_param = np.sum
+        label_text = "Sum individer"
+
+    # Create the hexbin map with conditional parameters
+    fig_hex = ff.create_hexbin_mapbox(
+        data_frame=artsdata_kart,
+        lat="latitude",
+        lon="longitude",
+        color=color_param,  # None for count, "Antall" for sum
+        nx_hexagon=15,
+        opacity=0.5,
+        labels={"color": label_text},
+        min_count=1,
+        color_continuous_scale="Viridis",
+        show_original_data=True,
+        original_data_marker=dict(size=4, opacity=0.6, color="deeppink"),
+        agg_func=agg_func_param,  # None for count, np.sum for sum
+    )
+
+    # Apply map style settings
+    fig_hex.update_layout(mapbox_style=map_style_dropdown.value, height=1000)
+
+    # Conditionally add the satellite layer based on the checkbox's value
+    if satellite_toggle.value:
+        fig_hex.update_layout(
+            mapbox_style="white-bg",
+            mapbox_layers=[
+                {
+                    "below": "traces",
+                    "sourcetype": "raster",
+                    "source": [
+                        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                    ],
+                }
+            ],
+        )
+    else:
+        fig_hex.update_layout(mapbox_layers=[])
+
+    hekskart = mo.ui.plotly(fig_hex)
+    hekskart
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
     mo.md(r"""#### Punktkart""")
     return
 
@@ -162,83 +235,27 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    # Create a dropdown to switch between count and sum
-    aggregation_mode = mo.ui.dropdown(
-        options=["Antall observasjoner", "Sum individer"],
-        value="Antall observasjoner",
-        label="Aggregation mode:",
-    )
-    aggregation_mode
-    return (aggregation_mode,)
+    mo.md(r"""
+    ## Territory Size Reference
+
+
+    #### Territory Size Comparison
+
+    | Radius (m) | Area (ha) | Area (m²) | Typical Bird Species |
+    |------------|-----------|-----------|---------------------|
+    | 50 | 0.8 | 7,854 | Small songbirds |
+    | 100 | 3.1 | 31,416 | Medium passerines |
+    | **150** | **7.1** | **70,686** | **Large songbirds** |
+    | **219** | **15.0** | **150,000** | **Raptors, corvids** |
+    | 300 | 28.3 | 282,743 | Large raptors |
+    | 500 | 78.5 | 785,398 | Eagles, large owls |
+
+
+    """)
+    return
 
 
 @app.cell(hide_code=True)
-def _(
-    aggregation_mode,
-    artsdata_kart,
-    ff,
-    map_style_dropdown,
-    mo,
-    np,
-    satellite_toggle,
-):
-    # Set parameters based on aggregation mode
-    if aggregation_mode.value == "Antall observasjoner":
-        color_param = None
-        agg_func_param = None
-        label_text = "Antall observasjoner"
-    else:
-        color_param = "Antall"
-        agg_func_param = np.sum
-        label_text = "Sum individer"
-
-    # Create the hexbin map with conditional parameters
-    fig_hex = ff.create_hexbin_mapbox(
-        data_frame=artsdata_kart,
-        lat="latitude",
-        lon="longitude",
-        color=color_param,  # None for count, "Antall" for sum
-        nx_hexagon=10,
-        opacity=0.5,
-        labels={"color": label_text},
-        min_count=1,
-        color_continuous_scale="Viridis",
-        show_original_data=True,
-        original_data_marker=dict(size=4, opacity=0.6, color="deeppink"),
-        agg_func=agg_func_param,  # None for count, np.sum for sum
-    )
-
-    # Apply map style settings
-    fig_hex.update_layout(mapbox_style=map_style_dropdown.value, height=1000)
-
-    # Conditionally add the satellite layer based on the checkbox's value
-    if satellite_toggle.value:
-        fig_hex.update_layout(
-            mapbox_style="white-bg",
-            mapbox_layers=[
-                {
-                    "below": "traces",
-                    "sourcetype": "raster",
-                    "source": [
-                        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                    ],
-                }
-            ],
-        )
-    else:
-        fig_hex.update_layout(mapbox_layers=[])
-
-    hekskart = mo.ui.plotly(fig_hex)
-    hekskart
-    return
-
-
-@app.cell
-def _():
-    return
-
-
-@app.cell
 def _(mo):
     # UI Controls for territory analysis
     territory_size = mo.ui.slider(
@@ -278,7 +295,7 @@ def _(mo):
     return aggregation_radius, cluster_distance, territory_size
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(DBSCAN, aggregation_radius, artsdata_df, mo, np, pl, pyproj):
     # Get filtered data from your table selection
     territory_data = artsdata_df.value
@@ -290,7 +307,7 @@ def _(DBSCAN, aggregation_radius, artsdata_df, mo, np, pl, pyproj):
     # Transform coordinates to UTM
     _transformer = pyproj.Transformer.from_proj(_wgs84_proj, _utm_proj)
     utm_coords = [
-        _transformer.transform(lat, lon) 
+        _transformer.transform(lon, lat)  # ← FIXED: lon first, then lat
         for lat, lon in zip(territory_data['latitude'], territory_data['longitude'])
     ]
 
@@ -344,7 +361,7 @@ def _(DBSCAN, aggregation_radius, artsdata_df, mo, np, pl, pyproj):
     return (aggregated_points,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(DBSCAN, aggregated_points, cluster_distance, mo, np, pl):
     # Apply DBSCAN on aggregated points for territory clustering
     aggregated_coords = np.column_stack([
@@ -377,7 +394,7 @@ def _(DBSCAN, aggregated_points, cluster_distance, mo, np, pl):
     return aggregated_coords, aggregated_with_territories, territory_labels
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     aggregated_coords,
     aggregated_with_territories,
@@ -573,146 +590,6 @@ def _(
                 })
 
     print(f"Created {len(territory_shapes)} territory shapes")
-    return (territory_shapes,)
-
-
-@app.cell
-def _(
-    aggregated_points,
-    aggregation_radius,
-    cluster_distance,
-    go,
-    map_style_dropdown,
-    mo,
-    satellite_toggle,
-    territory_shapes,
-    territory_size,
-):
-    # Create the interactive map with territories
-    fig_territories = go.Figure()
-
-    # Add territory polygons
-    for territory in territory_shapes:
-        # Determine color based on type
-        color_map = {
-            'circle': 'rgba(100, 200, 100, 0.4)',
-            'hull': 'rgba(100, 100, 200, 0.4)',
-            'oval': 'rgba(200, 100, 200, 0.4)',
-            'bounding_circle': 'rgba(255, 165, 0, 0.4)'
-        }
-    
-        line_color_map = {
-            'circle': 'green',
-            'hull': 'blue',
-            'oval': 'purple',
-            'bounding_circle': 'orange'
-        }
-    
-        color = color_map.get(territory['type'], 'rgba(128, 128, 128, 0.4)')
-        line_color = line_color_map.get(territory['type'], 'gray')
-    
-        # Add territory polygon
-        fig_territories.add_trace(
-            go.Scattermapbox(
-                mode='lines',
-                lon=territory['lons'] + [territory['lons'][0]],  # Close the polygon
-                lat=territory['lats'] + [territory['lats'][0]],
-                fill='toself',
-                fillcolor=color,
-                line=dict(color=line_color, width=2),
-                name=f"Territory {territory['territory_id']}",
-                text=f"Species: {territory['species']}<br>"
-                     f"Aggregated groups: {territory['n_aggregated_groups']}<br>"
-                     f"Total observations: {territory['total_observations']}<br>"
-                     f"Total individuals: {territory['total_individuals']}<br>"
-                     f"Type: {territory['type']}",
-                hovertemplate='%{text}<extra></extra>',
-                showlegend=False
-            )
-        )
-
-    # Add aggregated observation points
-    fig_territories.add_trace(
-        go.Scattermapbox(
-            mode='markers',
-            lon=aggregated_points['centroid_lon'].to_list(),
-            lat=aggregated_points['centroid_lat'].to_list(),
-            marker=dict(
-                size=[min(5 + count/2, 20) for count in aggregated_points['observation_count'].to_list()],
-                color='red',
-                opacity=0.7,
-                sizemode='diameter'
-            ),
-            text=[
-                f"{row['species']}<br>"
-                f"Observations: {row['observation_count']}<br>"
-                f"Individuals: {row['total_individuals']}<br>"
-                f"First: {row['first_date']}<br>"
-                f"Last: {row['last_date']}"
-                for row in aggregated_points.iter_rows(named=True)
-            ],
-            hovertemplate='%{text}<extra></extra>',
-            name='Aggregated Observations'
-        )
-    )
-
-    # Calculate center for map
-    _center_lat = float(aggregated_points['centroid_lat'].mean())
-    _center_lon = float(aggregated_points['centroid_lon'].mean())
-
-    # Update layout
-    fig_territories.update_layout(
-        mapbox_style=map_style_dropdown.value,
-        mapbox=dict(
-            center=dict(
-                lat=_center_lat,
-                lon=_center_lon
-            ),
-            zoom=10
-        ),
-        height=800,
-        title=f"Bird Territories - Aggregation: {aggregation_radius.value}m | Cluster: {cluster_distance.value}m | Territory: {territory_size.value}m",
-        showlegend=True
-    )
-
-    # Add satellite imagery if toggle is enabled
-    if satellite_toggle.value:
-        fig_territories.update_layout(
-            mapbox_style="white-bg",
-            mapbox_layers=[
-                {
-                    "below": "traces",
-                    "sourcetype": "raster",
-                    "source": [
-                        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                    ],
-                }
-            ],
-        )
-
-    territory_map = mo.ui.plotly(fig_territories)
-    territory_map
-    return
-
-
-@app.cell
-def _(mo, territory_shapes):
-    # Verify territory data structure
-    sample_territory = territory_shapes[0]
-    mo.md(f"""
-    ### First Territory Details:
-    - **Type:** {sample_territory['type']}
-    - **Territory ID:** {sample_territory['territory_id']}
-    - **Number of coordinate pairs:** {len(sample_territory['lats'])}
-    - **Species:** {sample_territory['species']}
-    - **Total observations:** {sample_territory['total_observations']}
-    - **Total individuals:** {sample_territory['total_individuals']}
-    - **Center:** {sample_territory['center_lat']:.4f}, {sample_territory['center_lon']:.4f}
-    - **First 3 coordinates:** 
-      - ({sample_territory['lats'][0]:.4f}, {sample_territory['lons'][0]:.4f})
-      - ({sample_territory['lats'][1]:.4f}, {sample_territory['lons'][1]:.4f})
-      - ({sample_territory['lats'][2]:.4f}, {sample_territory['lons'][2]:.4f})
-    """)
     return
 
 
@@ -730,7 +607,7 @@ def _(mo):
 
 @app.cell
 def _(arter_df, mo):
-    artsdata_df = mo.ui.table(arter_df, page_size=50)
+    artsdata_df = mo.ui.table(arter_df, page_size=20)
     artsdata_df
     return (artsdata_df,)
 
