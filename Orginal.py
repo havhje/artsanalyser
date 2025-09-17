@@ -612,14 +612,125 @@ def _(arter_df, mo):
     return (artsdata_df,)
 
 
-@app.cell
-def _(artsdata_df, mo):
-    mo.ui.data_explorer(artsdata_df.value)
-    return
+@app.cell(hide_code=True)
+def _(artsdata_df, mo, pl):
+    import great_tables as gt
+    from great_tables import loc, style
 
+    # Get selected data from the table
+    _obs_data = artsdata_df.value
 
-@app.cell
-def _():
+    # Calculate per-species statistics
+    _species_stats = (_obs_data
+        .group_by('Navn')
+        .agg([
+            pl.len().alias('Observasjoner'),
+            pl.col('Antall').sum().alias('Individer'),
+            pl.col('Familie').first().alias('Familie'),
+            pl.col('Orden').first().alias('Orden'),
+            pl.col('Kategori').first().alias('Kategori'),
+            pl.col('Ansvarsarter').first().alias('Ansvarsarter'),
+            pl.col('Andre spesielt hensynskrevende arter').first().alias('Andre spesielt hensynskrevende arter'),
+            pl.col('Prioriterte arter').first().alias('Prioriterte arter'),
+            pl.col('Observert dato').dt.year().min().alias('År fra'),
+            pl.col('Observert dato').dt.year().max().alias('År til'),
+            pl.col('Antall').mean().alias('Gj.snitt individer'),
+            pl.col('Observert dato').dt.month().unique().sort().alias('Måneder_num')
+        ])
+        .with_columns([
+            pl.when(pl.col('År fra') == pl.col('År til'))
+            .then(pl.col('År fra').cast(pl.Utf8))
+            .otherwise(pl.concat_str([pl.col('År fra'), pl.lit('-'), pl.col('År til')]))
+            .alias('År-periode'),
+            pl.col('Måneder_num').map_elements(
+                lambda months: ', '.join([
+                    ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 
+                     'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'][m-1] 
+                    for m in months if m is not None
+                ]),
+                return_dtype=pl.Utf8
+            ).alias('Måneder'),
+            # Create Øvrige kategorier column
+            pl.concat_list([
+                pl.when(pl.col('Ansvarsarter')).then(pl.lit('Ansvarsart')).otherwise(pl.lit(None)),
+                pl.when(pl.col('Andre spesielt hensynskrevende arter')).then(pl.lit('Hensynskrevende')).otherwise(pl.lit(None)),
+                pl.when(pl.col('Prioriterte arter')).then(pl.lit('Prioritert')).otherwise(pl.lit(None))
+            ]).list.drop_nulls().list.join(', ').alias('Øvrige kategorier')
+        ]))
+
+    # Define custom sort order for Kategori
+    _kategori_order = {'CR': 1, 'EN': 2, 'VU': 3, 'NT': 4, 'LC': 5}
+
+    # Add sort key and sort by Kategori order, then by Observasjoner
+    _species_stats = _species_stats.with_columns(
+        pl.col('Kategori').map_elements(
+            lambda x: _kategori_order.get(x, 999), 
+            return_dtype=pl.Int32
+        ).alias('kategori_sort')
+    ).sort(['kategori_sort', 'Observasjoner'], descending=[False, True]).drop('kategori_sort')
+
+    # Select columns in requested order - Øvrige kategorier now after Kategori
+    _species_stats_formatted = _species_stats.select([
+        'Kategori',
+        'Øvrige kategorier',
+        'Navn',
+        'Observasjoner',
+        'Individer',
+        'Gj.snitt individer',
+        'År-periode',
+        'Måneder',
+        'Familie',
+        'Orden'
+    ])
+
+    # Create the species statistics table
+    species_table = (
+        gt.GT(_species_stats_formatted.to_pandas())  # Show all species
+        .tab_header(
+            title="Statistikk per art",
+            subtitle=f"Alle {_species_stats.height} arter sortert etter rødlistekategori"
+        )
+        .fmt_number(
+            columns=['Observasjoner'],
+            decimals=0,
+            use_seps=True
+        )
+        .fmt_number(
+            columns=['Individer'],
+            decimals=0,
+            use_seps=True
+        )
+        .fmt_number(
+            columns=['Gj.snitt individer'],
+            decimals=1
+        )
+        .tab_options(
+            table_font_size="12px",
+            heading_title_font_size="16px",
+            column_labels_font_size="13px"
+        )
+    )
+
+    # Summary overview
+    _total_species = _species_stats.height
+    _total_obs = _species_stats['Observasjoner'].sum()
+    _total_individuals = _species_stats['Individer'].sum()
+    _most_common_family = (_obs_data.group_by('Familie').agg(pl.len()).sort('len', descending=True).head(1)['Familie'][0])
+
+    # Create a summary card
+    summary_stats = mo.md(f"""
+    ### Oversikt
+    - **Totalt antall arter:** {_total_species}
+    - **Totalt antall observasjoner:** {_total_obs:,}
+    - **Totalt antall individer:** {_total_individuals:,}
+    - **Vanligste familie:** {_most_common_family}
+    """)
+
+    mo.vstack([
+        summary_stats,
+        mo.md("---"),
+        species_table
+    ])
     return
 
 
@@ -870,8 +981,14 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(artsdata_df, dataframe_selector, okosystem_arter_df):
-    # Assign the selected dataframe to artsdata_fg based on the dropdown value
+def _(artsdata_df, dataframe_selector, mo, okosystem_arter_df):
+    # Add this at the beginning of the cell that uses okosystem_arter_df
+    mo.stop(
+        'okosystem_arter_df' not in globals() and dataframe_selector.value != "Alle arter",
+        mo.md("⚠️ **Run the ecosystem overlay analysis first to use filtered data**")
+    )
+
+    # Your existing logic continues here
     if dataframe_selector.value == "Alle arter":
         artsdata_fg = artsdata_df.value
     else:
@@ -1299,7 +1416,7 @@ def _(mo):
     return
 
 
-@app.cell(disabled=True, hide_code=True)
+@app.cell(hide_code=True)
 def _(arter_df, mo, pd):
     # Extract UTM coordinates from geometry column
     coords_utm = mo.sql("""
