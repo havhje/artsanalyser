@@ -23,6 +23,7 @@ def _():
     from sklearn.cluster import DBSCAN
     import scipy
     import numpy as np
+    import tabulate
     return (
         DBSCAN,
         alt,
@@ -235,7 +236,8 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""
+    mo.md(
+        r"""
     ## Territory Size Reference
 
 
@@ -249,9 +251,8 @@ def _(mo):
     | **219** | **15.0** | **150,000** | **Raptors, corvids** |
     | 300 | 28.3 | 282,743 | Large raptors |
     | 500 | 78.5 | 785,398 | Eagles, large owls |
-
-
-    """)
+    """
+    )
     return
 
 
@@ -417,28 +418,28 @@ def _(
     for territory_id in set(territory_labels):
         if territory_id == -1:  # Skip noise
             continue
-    
+
         # Get points in this territory
         territory_mask = territory_labels == territory_id
         territory_points = aggregated_coords[territory_mask]
         territory_df = aggregated_with_territories.filter(
             pl.col('territory_cluster') == territory_id
         )
-    
+
         if len(territory_points) == 1:
             # Single aggregated point - create circle
             center_x, center_y = territory_points[0]
             circle_x, circle_y = create_circle_coords(
                 center_x, center_y, territory_size.value
             )
-        
+
             # Transform back to WGS84 - FIX: transformer returns (lon, lat) not (lat, lon)
             reverse_transformer = pyproj.Transformer.from_crs("EPSG:25833", "EPSG:4326", always_xy=True)
             circle_coords_wgs = [
                 reverse_transformer.transform(cx, cy) 
                 for cx, cy in zip(circle_x, circle_y)
             ]
-        
+
             territory_shapes.append({
                 'type': 'circle',
                 'territory_id': territory_id,
@@ -451,42 +452,42 @@ def _(
                 'lons': [coord[0] for coord in circle_coords_wgs],  # First element is lon
                 'species': territory_df['species'][0]
             })
-    
+
         elif len(territory_points) == 2:
             # Two points - create oval
             p1, p2 = territory_points
             mid_x = (p1[0] + p2[0]) / 2
             mid_y = (p1[1] + p2[1]) / 2
-        
+
             dist = np.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
             angle = np.arctan2(p2[1] - p1[1], p2[0] - p1[0])
-        
+
             # Create oval shape
             n_points = 32
             angles = np.linspace(0, 2*np.pi, n_points)
             oval_points = []
-        
+
             for a in angles:
                 rx = (dist/2) + territory_size.value
                 ry = territory_size.value
-            
+
                 ellipse_x = rx * np.cos(a)
                 ellipse_y = ry * np.sin(a)
-            
+
                 rot_x = ellipse_x * np.cos(angle) - ellipse_y * np.sin(angle)
                 rot_y = ellipse_x * np.sin(angle) + ellipse_y * np.cos(angle)
-            
+
                 final_x = rot_x + mid_x
                 final_y = rot_y + mid_y
-            
+
                 oval_points.append([final_x, final_y])
-        
+
             reverse_transformer = pyproj.Transformer.from_crs("EPSG:25833", "EPSG:4326", always_xy=True)
             oval_coords_wgs = [
                 reverse_transformer.transform(ox, oy) 
                 for ox, oy in oval_points
             ]
-        
+
             territory_shapes.append({
                 'type': 'oval',
                 'territory_id': territory_id,
@@ -499,31 +500,31 @@ def _(
                 'lons': [coord[0] for coord in oval_coords_wgs],  # First element is lon
                 'species': territory_df['species'][0]
             })
-    
+
         else:
             # Three or more points - try convex hull with error handling
             try:
                 # Add small random noise to prevent collinear issues
                 points_with_noise = territory_points + np.random.normal(0, 0.1, territory_points.shape)
-            
+
                 # Check if points are not collinear
                 from scipy.spatial import ConvexHull
-            
+
                 # Try to create hull
                 hull = ConvexHull(points_with_noise)
                 hull_points = points_with_noise[hull.vertices]
-            
+
                 # Calculate centroid
                 centroid_x = np.mean(hull_points[:, 0])
                 centroid_y = np.mean(hull_points[:, 1])
-            
+
                 # Expand hull points by territory buffer
                 buffered_points = []
                 for point in hull_points:
                     dx = point[0] - centroid_x
                     dy = point[1] - centroid_y
                     dist = np.sqrt(dx**2 + dy**2)
-                
+
                     if dist > 0:
                         scale = (dist + territory_size.value/2) / dist
                         new_x = centroid_x + dx * scale
@@ -531,13 +532,13 @@ def _(
                         buffered_points.append([new_x, new_y])
                     else:
                         buffered_points.append(point)
-            
+
                 reverse_transformer = pyproj.Transformer.from_crs("EPSG:25833", "EPSG:4326", always_xy=True)
                 hull_coords_wgs = [
                     reverse_transformer.transform(hx, hy) 
                     for hx, hy in buffered_points
                 ]
-            
+
                 territory_shapes.append({
                     'type': 'hull',
                     'territory_id': territory_id,
@@ -550,32 +551,32 @@ def _(
                     'lons': [coord[0] for coord in hull_coords_wgs],  # First element is lon
                     'species': territory_df['species'][0]
                 })
-            
+
             except Exception as e:
                 # Fall back to minimum bounding circle if hull fails
                 print(f"ConvexHull failed for territory {territory_id}, using bounding circle: {str(e)}")
-            
+
                 # Calculate minimum bounding circle
                 center_x = np.mean(territory_points[:, 0])
                 center_y = np.mean(territory_points[:, 1])
-            
+
                 # Find maximum distance from center
                 max_dist = max(
                     np.sqrt((p[0] - center_x)**2 + (p[1] - center_y)**2) 
                     for p in territory_points
                 )
-            
+
                 # Create circle with radius = max_dist + territory_size
                 circle_x, circle_y = create_circle_coords(
                     center_x, center_y, max_dist + territory_size.value
                 )
-            
+
                 reverse_transformer = pyproj.Transformer.from_crs("EPSG:25833", "EPSG:4326", always_xy=True)
                 circle_coords_wgs = [
                     reverse_transformer.transform(cx, cy) 
                     for cx, cy in zip(circle_x, circle_y)
                 ]
-            
+
                 territory_shapes.append({
                     'type': 'bounding_circle',
                     'territory_id': territory_id,
@@ -658,6 +659,22 @@ def _(artsdata_df, mo, pl):
             ]).list.drop_nulls().list.join(', ').alias('Øvrige kategorier')
         ]))
 
+    # Calculate activity counts per species
+    _activity_counts = (_obs_data
+        .group_by(['Navn', 'Atferd'])
+        .agg(pl.len().alias('count'))
+        .pivot(
+            values='count',
+            index='Navn',
+            on='Atferd',
+            aggregate_function='sum'
+        )
+        .fill_null(0)
+    )
+
+    # Join activity counts with species stats
+    _species_stats = _species_stats.join(_activity_counts, on='Navn', how='left')
+
     # Define custom sort order for Kategori
     _kategori_order = {'CR': 1, 'EN': 2, 'VU': 3, 'NT': 4, 'LC': 5}
 
@@ -669,7 +686,15 @@ def _(artsdata_df, mo, pl):
         ).alias('kategori_sort')
     ).sort(['kategori_sort', 'Observasjoner'], descending=[False, True]).drop('kategori_sort')
 
-    # Select columns in requested order - Øvrige kategorier now after Kategori
+    # Get all activity columns (everything after the main columns)
+    _activity_columns = [col for col in _species_stats.columns if col not in [
+        'Kategori', 'Øvrige kategorier', 'Navn', 'Observasjoner', 'Individer', 
+        'Gj.snitt individer', 'År-periode', 'Måneder', 'Familie', 'Orden',
+        'Ansvarsarter', 'Andre spesielt hensynskrevende arter', 'Prioriterte arter',
+        'År fra', 'År til', 'Måneder_num'
+    ]]
+
+    # Select columns in requested order with activities at the end
     _species_stats_formatted = _species_stats.select([
         'Kategori',
         'Øvrige kategorier',
@@ -681,28 +706,27 @@ def _(artsdata_df, mo, pl):
         'Måneder',
         'Familie',
         'Orden'
-    ])
+    ] + _activity_columns)
 
     # Create the species statistics table
     species_table = (
         gt.GT(_species_stats_formatted.to_pandas())  # Show all species
         .tab_header(
-            title="Statistikk per art",
+            title="Statistikk per art med aktiviteter",
             subtitle=f"Alle {_species_stats.height} arter sortert etter rødlistekategori"
         )
         .fmt_number(
-            columns=['Observasjoner'],
-            decimals=0,
-            use_seps=True
-        )
-        .fmt_number(
-            columns=['Individer'],
+            columns=['Observasjoner', 'Individer'] + _activity_columns,
             decimals=0,
             use_seps=True
         )
         .fmt_number(
             columns=['Gj.snitt individer'],
             decimals=1
+        )
+        .tab_spanner(
+            label="Aktiviteter",
+            columns=_activity_columns
         )
         .tab_options(
             table_font_size="12px",
@@ -731,6 +755,93 @@ def _(artsdata_df, mo, pl):
         mo.md("---"),
         species_table
     ])
+    return
+
+
+@app.cell(hide_code=True)
+def _(artsdata_df, mo, pl, px):
+    # Prepare hierarchical data for sunburst
+    _selected_data = artsdata_df.value
+
+    # Create hierarchical structure with proper parent relationships
+    _sunburst_data = []
+
+    # Add Orders
+    _orden_stats = (_selected_data
+        .group_by('Orden')
+        .agg([
+            pl.len().alias('observations'),
+            pl.col('Antall').sum().alias('individuals')
+        ])
+    )
+
+    for row in _orden_stats.iter_rows(named=True):
+        _sunburst_data.append({
+            'labels': row['Orden'],
+            'parents': '',
+            'values': row['individuals'],
+            'observations': row['observations'],
+            'level': 'Orden'
+        })
+
+    # Add Families
+    _familie_stats = (_selected_data
+        .group_by(['Orden', 'Familie'])
+        .agg([
+            pl.len().alias('observations'),
+            pl.col('Antall').sum().alias('individuals')
+        ])
+    )
+
+    for row in _familie_stats.iter_rows(named=True):
+        _sunburst_data.append({
+            'labels': row['Familie'],
+            'parents': row['Orden'],
+            'values': row['individuals'],
+            'observations': row['observations'],
+            'level': 'Familie'
+        })
+
+    # Add Species
+    _species_stats = (_selected_data
+        .group_by(['Familie', 'Navn'])
+        .agg([
+            pl.len().alias('observations'),
+            pl.col('Antall').sum().alias('individuals')
+        ])
+    )
+
+    for row in _species_stats.iter_rows(named=True):
+        _sunburst_data.append({
+            'labels': row['Navn'],
+            'parents': row['Familie'],
+            'values': row['individuals'],
+            'observations': row['observations'],
+            'level': 'Art'
+        })
+
+    _sunburst_df = pl.DataFrame(_sunburst_data).to_pandas()
+
+    # Create sunburst chart
+    fig_sunburst = px.sunburst(
+        _sunburst_df,
+        names='labels',
+        parents='parents',
+        values='values',
+        color='level',
+        color_discrete_map={'Orden': '#1f77b4', 'Familie': '#ff7f0e', 'Art': '#2ca02c'},
+        hover_data={'observations': True, 'values': True},
+        title='Taksonomisk hierarki - Sunburst'
+    )
+
+    fig_sunburst.update_traces(
+        textinfo="label+value",
+        hovertemplate='<b>%{label}</b><br>Individer: %{value}<br>Observasjoner: %{customdata[0]}<extra></extra>'
+    )
+
+    fig_sunburst.update_layout(height=1000, width=1200)
+
+    mo.ui.plotly(fig_sunburst)
     return
 
 
@@ -1418,6 +1529,8 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(arter_df, mo, pd):
+    mo.stop(True, mo.md("⚠️ **Execution stopped**"))
+
     # Extract UTM coordinates from geometry column
     coords_utm = mo.sql("""
         SELECT 
