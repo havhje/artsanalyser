@@ -829,8 +829,9 @@ def _(artsdata_df, pl):
             ]).list.drop_nulls().list.join(', ').alias('Øvrige kategorier')
         ]))
 
-    # Calculate activity counts per species
+    # Calculate activity counts per species - only for reproductive behaviors
     _activity_counts = (_obs_data
+        .filter(pl.col('Atferd').is_in(['Reproduksjon', 'Mulig reproduksjon']))
         .group_by(['Navn', 'Atferd'])
         .agg(pl.len().alias('count'))
         .pivot(
@@ -845,6 +846,17 @@ def _(artsdata_df, pl):
     # Join activity counts with species stats
     _species_stats = _species_stats.join(_activity_counts, on='Navn', how='left')
 
+    # Fill nulls with 0 for species without any reproductive activities
+    if 'Reproduksjon' in _species_stats.columns:
+        _species_stats = _species_stats.with_columns(pl.col('Reproduksjon').fill_null(0))
+    else:
+        _species_stats = _species_stats.with_columns(pl.lit(0).alias('Reproduksjon'))
+
+    if 'Mulig reproduksjon' in _species_stats.columns:
+        _species_stats = _species_stats.with_columns(pl.col('Mulig reproduksjon').fill_null(0))
+    else:
+        _species_stats = _species_stats.with_columns(pl.lit(0).alias('Mulig reproduksjon'))
+
     # Define custom sort order for Kategori
     _kategori_order = {'CR': 1, 'EN': 2, 'VU': 3, 'NT': 4, 'LC': 5}
 
@@ -856,16 +868,8 @@ def _(artsdata_df, pl):
         ).alias('kategori_sort')
     ).sort(['kategori_sort', 'Observasjoner'], descending=[False, True]).drop('kategori_sort')
 
-    # Get all activity columns (everything after the main columns)
-    _activity_columns = [col for col in _species_stats.columns if col not in [
-        'Kategori', 'Øvrige kategorier', 'Navn', 'Observasjoner', 'Individer', 
-        'Gj.snitt individer', 'År-periode', 'Måneder', 'Familie', 'Orden',
-        'Ansvarsarter', 'Andre spesielt hensynskrevende arter', 'Prioriterte arter',
-        'År fra', 'År til', 'Måneder_num'
-    ]]
-
-    # Select columns in requested order with activities at the end
-    _species_stats_formatted = _species_stats.select([
+    # IMPORTANT: Remove underscore to make accessible from other cells
+    species_stats_formatted = _species_stats.select([
         'Kategori',
         'Øvrige kategorier',
         'Navn',
@@ -875,18 +879,20 @@ def _(artsdata_df, pl):
         'År-periode',
         'Måneder',
         'Familie',
-        'Orden'
-    ] + _activity_columns)
+        'Orden',
+        'Reproduksjon',
+        'Mulig reproduksjon'
+    ])
 
     # Create the species statistics table
     species_table = (
-        gt.GT(_species_stats_formatted.to_pandas())  # Show all species
+        gt.GT(species_stats_formatted.to_pandas())  # Show all species
         .tab_header(
             title="Statistikk per art med aktiviteter",
             subtitle=f"Alle {_species_stats.height} arter sortert etter rødlistekategori"
         )
         .fmt_number(
-            columns=['Observasjoner', 'Individer'] + _activity_columns,
+            columns=['Observasjoner', 'Individer', 'Reproduksjon', 'Mulig reproduksjon'],
             decimals=0,
             use_seps=True
         )
@@ -896,7 +902,7 @@ def _(artsdata_df, pl):
         )
         .tab_spanner(
             label="Aktiviteter",
-            columns=_activity_columns
+            columns=['Reproduksjon', 'Mulig reproduksjon']
         )
         .tab_options(
             table_font_size="12px",
@@ -906,6 +912,38 @@ def _(artsdata_df, pl):
     )
 
     species_table
+    return (species_stats_formatted,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    # Create a run button for clipboard export
+    clipboard_button = mo.ui.run_button(label="Copy Table to Clipboard")
+    clipboard_button
+    return (clipboard_button,)
+
+
+@app.cell(hide_code=True)
+def _(clipboard_button, mo, species_stats_formatted):
+    # Copy data to clipboard when button is clicked
+    mo.stop(not clipboard_button.value, mo.md(" Click the button above to copy data to clipboard"))
+
+    try:
+        # Convert the polars dataframe to pandas and copy to clipboard
+        # You can choose which dataset to copy
+        species_stats_formatted.to_pandas().to_clipboard(index=False)
+    
+        row_count = species_stats_formatted.height
+        col_count = species_stats_formatted.width
+    
+        mo.md(f"""
+         **Data copied to clipboard!**
+        - **Rows:** {row_count}
+        - **Columns:** {col_count}
+        - You can now paste it into Excel, Google Sheets, or any other application
+        """)
+    except Exception as e:
+        mo.md(f"❌ **Failed to copy:** {str(e)}")
     return
 
 
