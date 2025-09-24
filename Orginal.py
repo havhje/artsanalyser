@@ -601,8 +601,76 @@ def _(arter_df, mo):
     return (artsdata_df,)
 
 
-@app.cell(column=2)
-def _():
+@app.cell(column=2, hide_code=True)
+def _(artsdata_df, mo, pl):
+    # Calculate summary statistics from the data
+    _data = artsdata_df.value
+
+    # Basic counts
+    total_species = _data.select('Navn').unique().height
+    total_observations = _data.height
+    total_individuals = _data.select('Antall').sum().item()
+
+    # Get unique species with all categories
+    _species_unique = _data.select(['Navn', 'Kategori', 'Ansvarsarter', 
+                                    'Andre spesielt hensynskrevende arter', 
+                                    'Prioriterte arter',
+                                    'Spesielle økologiske former']).unique()
+
+    # Count by red list category - ALL categories
+    cr_count = _species_unique.filter(pl.col('Kategori') == 'CR').height
+    en_count = _species_unique.filter(pl.col('Kategori') == 'EN').height
+    vu_count = _species_unique.filter(pl.col('Kategori') == 'VU').height
+    nt_count = _species_unique.filter(pl.col('Kategori') == 'NT').height
+    lc_count = _species_unique.filter(pl.col('Kategori') == 'LC').height
+    dd_count = _species_unique.filter(pl.col('Kategori') == 'DD').height
+    ne_count = _species_unique.filter(pl.col('Kategori') == 'NE').height
+    na_count = _species_unique.filter(pl.col('Kategori') == 'NA').height
+
+    # Calculate threatened and red list totals
+    threatened_total = cr_count + en_count + vu_count
+    redlist_total = threatened_total + nt_count
+
+    # Count specific management categories
+    ansvarsarter_count = _species_unique.filter(pl.col('Ansvarsarter') == True).height
+    hensynskrevende_count = _species_unique.filter(pl.col('Andre spesielt hensynskrevende arter') == True).height
+    prioriterte_count = _species_unique.filter(pl.col('Prioriterte arter') == True).height
+    okologiske_former_count = _species_unique.filter(pl.col('Spesielle økologiske former') == True).height
+
+    # Check for alien species (fremmed art)
+    fremmed_count = _species_unique.filter(pl.col('Kategori').is_in(['SE', 'HI', 'PH', 'LO', 'NK'])).height
+
+    summary_text = mo.md(f"""
+    ## Datasettsammendrag
+
+    ### Generell statistikk
+    - **Totalt antall arter:** {total_species}
+    - **Totalt antall observasjoner:** {total_observations}
+    - **Totalt antall individer:** {total_individuals}
+
+    ### Rødlistekategorier
+    - **Totalt rødlistevurderte arter (CR+EN+VU+NT):** {redlist_total}
+    - Kritisk truet (CR): {cr_count}
+    - Sterkt truet (EN): {en_count}
+    - Sårbar (VU): {vu_count}
+    -  Nær truet (NT): {nt_count}
+    -  Livskraftig (LC): {lc_count}
+    -  Datamangel (DD): {dd_count}
+    -  Ikke vurdert (NE): {ne_count}
+    -  Ikke egnet (NA): {na_count}
+
+
+    ### Forvaltningskategorier
+    {f"- **Ansvarsarter:** {ansvarsarter_count}" if ansvarsarter_count > 0 else ""}
+    {f"- **Andre spesielt hensynskrevende arter:** {hensynskrevende_count}" if hensynskrevende_count > 0 else ""}
+    {f"- **Prioriterte arter:** {prioriterte_count}" if prioriterte_count > 0 else ""}
+    {f"- **Spesielle økologiske former:** {okologiske_former_count}" if okologiske_former_count > 0 else ""}
+
+    ### Andre kategorier
+    {f"- **Fremmede arter:** {fremmed_count}" if fremmed_count > 0 else ""}
+    """)
+
+    summary_text
     return
 
 
