@@ -1,80 +1,10 @@
 import marimo
 
-__generated_with = "0.15.5"
+__generated_with = "0.16.1"
 app = marimo.App(width="columns")
 
 
 @app.cell(column=0, hide_code=True)
-def _():
-    import altair as alt
-    import marimo as mo
-    import pandas as pd
-    import plotly.express as px
-    import plotly.figure_factory as ff
-    import polars as pl
-    import requests
-    import json
-    import time
-    import tempfile
-    import os
-    import duckdb
-    import pyproj
-    import plotly.graph_objects as go
-    from sklearn.cluster import DBSCAN
-    import scipy
-    import numpy as np
-    import tabulate
-    return (
-        DBSCAN,
-        alt,
-        ff,
-        go,
-        json,
-        mo,
-        np,
-        os,
-        pd,
-        pl,
-        px,
-        pyproj,
-        requests,
-        tempfile,
-        time,
-    )
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    valgt_fil = mo.ui.file_browser(
-        initial_path=r"C:\Users\havh\OneDrive - Multiconsult\Dokumenter\Oppdrag"
-    )
-    valgt_fil
-    return (valgt_fil,)
-
-
-@app.cell(hide_code=True)
-def _(valgt_fil):
-    file_info = valgt_fil.value[0]
-    filepath = file_info.path
-    str(filepath)
-    return (filepath,)
-
-
-@app.cell(hide_code=True)
-def _(filepath, mo):
-    arter_df = mo.sql(
-        f"""
-        SELECT 
-        * EXCLUDE (Antall),
-        TRY_CAST(Antall AS INTEGER) AS Antall
-        FROM read_csv('{filepath}')
-        """,
-        output=False
-    )
-    return (arter_df,)
-
-
-@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""### Kart""")
     return
@@ -595,15 +525,73 @@ def _(
 
 
 @app.cell(column=1, hide_code=True)
-def _(mo):
-    mo.md(r"""### Utforsker artsdata (innebygde marimo utforskere)""")
-    return
+def _():
+    import altair as alt
+    import marimo as mo
+    import pandas as pd
+    import plotly.express as px
+    import plotly.figure_factory as ff
+    import polars as pl
+    import requests
+    import json
+    import time
+    import tempfile
+    import os
+    import duckdb
+    import pyproj
+    import plotly.graph_objects as go
+    from sklearn.cluster import DBSCAN
+    import scipy
+    import numpy as np
+    import tabulate
+    return (
+        DBSCAN,
+        alt,
+        ff,
+        go,
+        json,
+        mo,
+        np,
+        os,
+        pd,
+        pl,
+        px,
+        pyproj,
+        requests,
+        tempfile,
+        time,
+    )
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""## Husk å velge data for at figurer skal funke""")
-    return
+    valgt_fil = mo.ui.file_browser(
+        initial_path=r"C:\Users\havh\OneDrive - Multiconsult\Dokumenter\Oppdrag"
+    )
+    valgt_fil
+    return (valgt_fil,)
+
+
+@app.cell(hide_code=True)
+def _(valgt_fil):
+    file_info = valgt_fil.value[0]
+    filepath = file_info.path
+    str(filepath)
+    return (filepath,)
+
+
+@app.cell(hide_code=True)
+def _(filepath, mo):
+    arter_df = mo.sql(
+        f"""
+        SELECT 
+        * EXCLUDE (Antall),
+        TRY_CAST(Antall AS INTEGER) AS Antall
+        FROM read_csv('{filepath}')
+        """,
+        output=False
+    )
+    return (arter_df,)
 
 
 @app.cell
@@ -613,8 +601,122 @@ def _(arter_df, mo):
     return (artsdata_df,)
 
 
+@app.cell(column=2)
+def _():
+    return
+
+
 @app.cell(hide_code=True)
-def _(artsdata_df, mo, pl):
+def _(artsdata_df, go, mo, pl):
+    # Get the selected data
+    _pie_data = artsdata_df.value
+
+    # Group by species first to get unique species, then count by category
+    _kategori_counts = (_pie_data
+        .select(['Navn', 'Kategori'])
+        .unique()
+        .group_by('Kategori')
+        .agg([
+            pl.len().alias('count')
+        ])
+        # Filter to only include specified categories
+        .filter(pl.col('Kategori').is_in(['LC', 'NT', 'VU', 'EN', 'CR', 'DD', 'NE', 'NA']))
+    )
+
+    # Norwegian category names
+    _kategori_names = {
+        'CR': 'Kritisk truet',
+        'EN': 'Sterkt truet',
+        'VU': 'Sårbar',
+        'NT': 'Nær truet',
+        'LC': 'Livskraftig',
+        'DD': 'Datamangel',
+        'NE': 'Ikke vurdert',
+        'NA': 'Ikke egnet'
+    }
+
+    # Add Norwegian names with code and count to the dataframe
+    _kategori_counts = _kategori_counts.with_columns(
+        pl.concat_str([
+            pl.col('Kategori').map_elements(
+                lambda x: _kategori_names.get(x, x),
+                return_dtype=pl.Utf8
+            ),
+            pl.lit(' ['),
+            pl.col('Kategori'),
+            pl.lit(']; '),
+            pl.col('count').cast(pl.Utf8)
+        ]).alias('Kategori_norsk')
+    )
+
+    # Define the specific order for the pie chart (from least to most threatened)
+    _category_order = ['LC', 'NT', 'VU', 'EN', 'CR', 'DD', 'NE', 'NA']
+
+    # Add sort column and sort by the defined order
+    _kategori_counts = _kategori_counts.with_columns(
+        pl.col('Kategori').map_elements(
+            lambda x: _category_order.index(x) if x in _category_order else 999,
+            return_dtype=pl.Int32
+        ).alias('sort_order')
+    ).sort('sort_order').drop('sort_order')
+
+    # Convert to pandas and ensure order is maintained
+    _kategori_df = _kategori_counts.to_pandas()
+
+    # Create ordered lists for plotly (ensuring the exact order we want)
+    _ordered_names = []
+    _ordered_counts = []
+    for cat in _category_order:
+        _row = _kategori_df[_kategori_df['Kategori'] == cat]
+        if not _row.empty:
+            _ordered_names.append(_row['Kategori_norsk'].values[0])
+            _ordered_counts.append(_row['count'].values[0])
+
+    # Official IUCN Red List color scheme
+    _iucn_colors_by_code = {
+        'CR': '#D81E05',     # Critically Endangered
+        'EN': '#FC7F3F',     # Endangered
+        'VU': '#F9E814',     # Vulnerable
+        'NT': '#CCE226',     # Near threatened
+        'LC': '#60C659',     # Least Concern
+        'DD': '#D1D1C6',     # Data Deficient
+        'NE': '#FFFFFF',     # Not Evaluated
+        'NA': '#C1B5A5'      # Not Applicable
+    }
+
+    # Create color list in the same order as the data
+    _ordered_colors = []
+    for cat in _category_order:
+        _row = _kategori_df[_kategori_df['Kategori'] == cat]
+        if not _row.empty:
+            _ordered_colors.append(_iucn_colors_by_code.get(cat, '#888888'))
+
+    # Create pie chart with explicit ordering
+    fig_pie = go.Figure(data=[go.Pie(
+        labels=_ordered_names,
+        values=_ordered_counts,
+        marker=dict(colors=_ordered_colors),
+        hole=0.3,
+        textposition='inside',
+        textinfo='label',
+        hovertemplate='<b>%{label}</b><br>Arter: %{value}<br>Andel: %{percent}<extra></extra>',
+        sort=False  # Important: don't let plotly sort
+    )])
+
+    # Update layout for better appearance
+    fig_pie.update_layout(
+        title='Antall arter fordelt på rødlistekategorier',
+        height=600,
+        width=800,
+        showlegend=False
+    )
+
+    mo.ui.plotly(fig_pie)
+    return
+
+
+@app.cell(hide_code=True)
+def _(artsdata_df, pl):
     import great_tables as gt
     from great_tables import loc, style
 
@@ -735,26 +837,7 @@ def _(artsdata_df, mo, pl):
         )
     )
 
-    # Summary overview
-    _total_species = _species_stats.height
-    _total_obs = _species_stats['Observasjoner'].sum()
-    _total_individuals = _species_stats['Individer'].sum()
-    _most_common_family = (_obs_data.group_by('Familie').agg(pl.len()).sort('len', descending=True).head(1)['Familie'][0])
-
-    # Create a summary card
-    summary_stats = mo.md(f"""
-    ### Oversikt
-    - **Totalt antall arter:** {_total_species}
-    - **Totalt antall observasjoner:** {_total_obs:,}
-    - **Totalt antall individer:** {_total_individuals:,}
-    - **Vanligste familie:** {_most_common_family}
-    """)
-
-    mo.vstack([
-        summary_stats,
-        mo.md("---"),
-        species_table
-    ])
+    species_table
     return
 
 
@@ -845,7 +928,7 @@ def _(artsdata_df, mo, pl, px):
     return
 
 
-@app.cell(column=2, hide_code=True)
+@app.cell(column=3, hide_code=True)
 def _(mo):
     mo.md(r"""### Tid""")
     return
@@ -1071,7 +1154,7 @@ def _(alt, artsdata_tid, mo, pl, toggle, window_size):
     return
 
 
-@app.cell(column=3, hide_code=True)
+@app.cell(column=4, hide_code=True)
 def _(mo):
     mo.md(r"""### Figurer""")
     return
@@ -1521,7 +1604,7 @@ def _(alt, artsdata_fg, mo):
     return
 
 
-@app.cell(column=4, hide_code=True)
+@app.cell(column=5, hide_code=True)
 def _(mo):
     mo.md(r"""## Overlagsanalyse mot hovedøkosystemkartet""")
     return
