@@ -932,10 +932,10 @@ def _(clipboard_button, mo, species_stats_formatted):
         # Convert the polars dataframe to pandas and copy to clipboard
         # You can choose which dataset to copy
         species_stats_formatted.to_pandas().to_clipboard(index=False)
-    
+
         row_count = species_stats_formatted.height
         col_count = species_stats_formatted.width
-    
+
         mo.md(f"""
          **Data copied to clipboard!**
         - **Rows:** {row_count}
