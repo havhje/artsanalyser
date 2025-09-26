@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.14.17"
+__generated_with = "0.16.1"
 app = marimo.App(width="columns")
 
 
@@ -183,7 +183,6 @@ def _(mo, oppryddet_df, pl):
     ])
 
 
-
     return (editor,)
 
 
@@ -242,6 +241,88 @@ def _(lat_lon_ok_df):
     return (endelig_datasett,)
 
 
+@app.cell
+def _(mo):
+    mo.md(r"""## Legger til en ny kolonne spm oppsumerer hvilken av forvaltningsinteressekategorien arter en""")
+    return
+
+
+@app.cell
+def _(endelig_datasett, pl):
+    # Add column summarizing national management interest categories
+    category_columns = [
+        "Ansvarsarter",
+        "Andre spesielt hensynskrevende arter",
+        "Spesielle økologiske former", 
+        "Prioriterte arter",
+        "Fredete arter",
+        "Fremmede arter"
+    ]
+
+    # Create expressions to check each category and return its name if TRUE
+    category_expressions = []
+    for col in category_columns:
+        category_expressions.append(
+            pl.when(pl.col(col) == "Yes")
+            .then(pl.lit(col))
+            .otherwise(pl.lit(None))
+        )
+
+    # Combine all categories into a single column
+    endelig_datasett_med_kategori = endelig_datasett.with_columns(
+        pl.when(
+            pl.concat_list(category_expressions)
+            .list.drop_nulls()
+            .list.join(", ") != ""
+        )
+        .then(
+            pl.concat_list(category_expressions)
+            .list.drop_nulls()
+            .list.join(", ")
+        )
+        .otherwise(pl.lit("Nei"))
+        .alias("Art av nasjonal forvaltningsinteresse")
+    )
+
+    endelig_datasett_med_kategori
+    return (endelig_datasett_med_kategori,)
+
+
+@app.cell
+def _(mo):
+    mo.md(r"""#Endrer kolonnerekkefølge""")
+    return
+
+
+@app.cell
+def _(endelig_datasett_med_kategori):
+    # Define desired column order
+    first_columns = [
+        "Kategori",
+        "Art av nasjonal forvaltningsinteresse",
+        "Navn", 
+        "Art",
+        "Antall",
+        "Observert dato",
+        "Usikkerhet meter",
+        "Atferd",
+        "Familie",
+        "Orden"
+    ]
+
+    # Get remaining columns not in first_columns
+    remaining_columns = [col for col in endelig_datasett_med_kategori.columns if col not in first_columns]
+
+    # Combine to create final column order
+    final_column_order = first_columns + remaining_columns
+
+    # Reorder the dataframe
+    endelig_datasett_reordered = endelig_datasett_med_kategori.select(final_column_order)
+
+    endelig_datasett_reordered
+    return (endelig_datasett_reordered,)
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""## Eksporter fikset og databehandlet datasett""")
@@ -249,8 +330,8 @@ def _(mo):
 
 
 @app.cell
-def _(endelig_datasett):
-    endelig_datasett
+def _(endelig_datasett_reordered):
+    endelig_datasett_reordered
     return
 
 
