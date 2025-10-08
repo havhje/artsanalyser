@@ -1,343 +1,12 @@
 import marimo
 
-__generated_with = "0.16.1"
+__generated_with = "0.16.5"
 app = marimo.App(width="columns")
 
 
 @app.cell(column=0, hide_code=True)
-def _():
-    import time
-    from functools import lru_cache
-    import marimo as mo
-    import polars as pl
-    import requests
-
-    # Constants
-    NORTAXA_API_BASE_URL = "https://nortaxa.artsdatabanken.no/api/v1/TaxonName"
-    DESIRED_RANKS = ["Kingdom", "Phylum", "Class", "Order", "Family", "Genus"]
-    RATE_LIMIT_DELAY = 0.1  # seconds between API calls (adjust as needed)
-    return (
-        DESIRED_RANKS,
-        NORTAXA_API_BASE_URL,
-        RATE_LIMIT_DELAY,
-        lru_cache,
-        mo,
-        pl,
-        requests,
-        time,
-    )
-
-
-@app.cell(hide_code=True)
 def _(mo):
-    valgt_fil = mo.ui.file_browser(initial_path=r"C:\Users\havh\OneDrive - Multiconsult\Dokumenter\Oppdrag")
-    valgt_fil
-    return (valgt_fil,)
-
-
-@app.cell(hide_code=True)
-def _(valgt_fil):
-    file_info = valgt_fil.value[0]
-    filepath = file_info.path
-    str(filepath)
-    return (filepath,)
-
-
-@app.cell
-def _(filepath, mo):
-    orginal_df = mo.sql(
-        f"""
-        SELECT * FROM read_csv('{str(filepath)}');
-        """
-    )
-    return (orginal_df,)
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""### Oppdatere og rydder i datasettet""")
-    return
-
-
-@app.cell
-def _(add_national_interest_criteria, orginal_df, process_and_enrich_data):
-    #Legger til artsdatabanken info
-    df_enriched, num_species_processed = process_and_enrich_data(orginal_df)
-
-    #Legger til arter av nasjonal forvaltningsinteresse
-    df_with_criteria = add_national_interest_criteria(df_enriched)
-
-    #Dropper kolonner som ikke er relevante og endrer til norske navn
-    oppryddet_df = clean_and_rename_columns(df_with_criteria)
-    return (oppryddet_df,)
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""## Utforsker og fikser mangler/utfordringer i datasettet""")
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo, oppryddet_df, pl):
-    # Cell 1: Missing Value Overview
-    null_summary = pl.DataFrame({
-        "Column": oppryddet_df.columns,
-        "Null Count": [oppryddet_df[col].null_count() for col in oppryddet_df.columns],
-        "Total Rows": len(oppryddet_df)
-    }).with_columns(
-        (pl.col("Null Count") / pl.col("Total Rows") * 100).round(2).alias("Null %")
-    ).select(["Column", "Null Count", "Null %"]).filter(
-        pl.col("Null Count") > 0
-    ).sort("Null Count", descending=True)
-
-    # Define expected vs unexpected nulls
-    expected_null_columns = [
-        "Usikkerhet meter", 
-        "Atferd", 
-        "Observatør",
-        "Lokalitet"
-    ]
-
-    # Add column to indicate if nulls are expected
-    null_summary_with_status = null_summary.with_columns(
-        pl.when(pl.col("Column").is_in(expected_null_columns))
-        .then(pl.lit("Expected"))
-        .otherwise(pl.lit("UNEXPECTED"))
-        .alias("Null Status")
-    )
-
-    # Filter unexpected nulls
-    unexpected_nulls = null_summary_with_status.filter(pl.col("Null Status") == "UNEXPECTED")
-
-    # Get columns with unexpected nulls
-    unexpected_null_columns = unexpected_nulls.get_column("Column").to_list()
-
-    # Create filter expression for rows with any unexpected null
-    if unexpected_null_columns:
-        filter_expr = pl.any_horizontal([pl.col(col).is_null() for col in unexpected_null_columns])
-        rows_with_unexpected_nulls = oppryddet_df.filter(filter_expr)
-
-        # Select relevant columns for display - avoid duplicates
-        base_columns = ["Art", "Navn"]
-        # Remove any base columns that are already in unexpected_null_columns to avoid duplicates
-        base_columns = [col for col in base_columns if col not in unexpected_null_columns]
-        display_columns = base_columns + unexpected_null_columns
-
-        # Ensure all columns exist in the dataframe
-        display_columns = [col for col in display_columns if col in oppryddet_df.columns]
-
-        unexpected_null_sample = rows_with_unexpected_nulls.select(display_columns)
-    else:
-        unexpected_null_sample = pl.DataFrame()
-
-    mo.md(f"""
-    #### Missing Value Overview
-    ### All Missing Values Summary
-    {mo.ui.table(null_summary_with_status, selection=None)}
-    Found **{null_summary.height}** columns with missing values out of **{len(oppryddet_df.columns)}** total columns.
-
-    ### Unexpected Missing Values
-    **{unexpected_nulls.height}** columns have unexpected null values:
-
-    {mo.ui.table(unexpected_nulls.select(["Column", "Null Count", "Null %"]), selection=None) if unexpected_nulls.height > 0 else "No unexpected null values found!"}
-
-    ### Sample Rows with Unexpected Nulls
-    {f"Showing all {rows_with_unexpected_nulls.height} rows with unexpected null values:" if unexpected_null_columns else ""}
-
-    {mo.ui.table(unexpected_null_sample, selection=None) if not unexpected_null_sample.is_empty() else ""}
-
-
-    """)
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo, oppryddet_df, pl):
-    # Fikser navn
-
-    # Get columns that have at least one null value
-    columns_with_nulls = oppryddet_df.filter(pl.col("Navn").is_null())
-
-    # Always include "Art" column even if it has no nulls
-    if "Art" not in columns_with_nulls:
-        columns_with_nulls = ["Art"] + columns_with_nulls
-
-    # Filter to only rows that have at least one null value
-    rows_with_nulls = oppryddet_df.filter(
-        pl.any_horizontal([pl.col(col).is_null() for col in oppryddet_df.columns])
-    )
-
-    # Select only the relevant columns
-    filtered_df = rows_with_nulls.select(columns_with_nulls)
-
-    # Create the editor with the filtered data
-    editor = mo.ui.data_editor(
-        data=filtered_df, 
-        label=f"Edit Data - {filtered_df.height} rows with nulls, {len(columns_with_nulls)} columns"
-    )
-    mo.vstack([
-    mo.md(f""" ####Endrer navn manuelt"""),
-    editor
-
-    ])
-
-
-    return (editor,)
-
-
-@app.cell
-def _(editor):
-    # This will show the dataframe with your edits
-    edited_df1 = editor.value
-    edited_df1
-    return
-
-
-@app.cell(hide_code=True)
-def _(editor, oppryddet_df, pl):
-    # Get the edited data
-    edited_df = editor.value
-
-    # Create a mapping of Artens ID to edited Navn values
-    navn_updates = edited_df.select(["Artens ID", "Navn"]).filter(pl.col("Navn").is_not_null())
-
-    # Update the original dataframe
-    updated_df = oppryddet_df.join(
-        navn_updates.rename({"Navn": "Navn_new"}),
-        on="Artens ID",
-        how="left"
-    ).with_columns(
-        pl.when(pl.col("Navn_new").is_not_null())
-        .then(pl.col("Navn_new"))
-        .otherwise(pl.col("Navn"))
-        .alias("Navn")
-    ).drop("Navn_new")
-    return (updated_df,)
-
-
-@app.cell
-def _(pl, updated_df):
-    # Setter alle null verdier i observasjoner lik 1
-
-    null_verdier_df = updated_df.with_columns(
-        pl.col("Antall").fill_null(1))
-    return (null_verdier_df,)
-
-
-@app.cell
-def _(null_verdier_df, pl):
-    # Endrer fra komma til punktum seperasjon i lengdegrad og breddegrad
-
-    lat_lon_ok_df = null_verdier_df.with_columns(
-        pl.col(["latitude", "longitude"]).str.replace_all(",", ".").cast(pl.Float64)
-    )
-    return (lat_lon_ok_df,)
-
-
-@app.cell
-def _(lat_lon_ok_df):
-    endelig_datasett = lat_lon_ok_df
-    return (endelig_datasett,)
-
-
-@app.cell
-def _(mo):
-    mo.md(r"""## Legger til en ny kolonne spm oppsumerer hvilken av forvaltningsinteressekategorien arter en""")
-    return
-
-
-@app.cell
-def _(endelig_datasett, pl):
-    # Add column summarizing national management interest categories
-    category_columns = [
-        "Ansvarsarter",
-        "Andre spesielt hensynskrevende arter",
-        "Spesielle økologiske former", 
-        "Prioriterte arter",
-        "Fredete arter",
-        "Fremmede arter"
-    ]
-
-    # Create expressions to check each category and return its name if TRUE
-    category_expressions = []
-    for col in category_columns:
-        category_expressions.append(
-            pl.when(pl.col(col) == "Yes")
-            .then(pl.lit(col))
-            .otherwise(pl.lit(None))
-        )
-
-    # Combine all categories into a single column
-    endelig_datasett_med_kategori = endelig_datasett.with_columns(
-        pl.when(
-            pl.concat_list(category_expressions)
-            .list.drop_nulls()
-            .list.join(", ") != ""
-        )
-        .then(
-            pl.concat_list(category_expressions)
-            .list.drop_nulls()
-            .list.join(", ")
-        )
-        .otherwise(pl.lit("Nei"))
-        .alias("Art av nasjonal forvaltningsinteresse")
-    )
-
-    endelig_datasett_med_kategori
-    return (endelig_datasett_med_kategori,)
-
-
-@app.cell
-def _(mo):
-    mo.md(r"""#Endrer kolonnerekkefølge""")
-    return
-
-
-@app.cell
-def _(endelig_datasett_med_kategori):
-    # Define desired column order
-    first_columns = [
-        "Kategori",
-        "Art av nasjonal forvaltningsinteresse",
-        "Navn", 
-        "Art",
-        "Antall",
-        "Observert dato",
-        "Usikkerhet meter",
-        "Atferd",
-        "Familie",
-        "Orden"
-    ]
-
-    # Get remaining columns not in first_columns
-    remaining_columns = [col for col in endelig_datasett_med_kategori.columns if col not in first_columns]
-
-    # Combine to create final column order
-    final_column_order = first_columns + remaining_columns
-
-    # Reorder the dataframe
-    endelig_datasett_reordered = endelig_datasett_med_kategori.select(final_column_order)
-
-    endelig_datasett_reordered
-    return (endelig_datasett_reordered,)
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""## Eksporter fikset og databehandlet datasett""")
-    return
-
-
-@app.cell
-def _(endelig_datasett_reordered):
-    endelig_datasett_reordered
-    return
-
-
-@app.cell(column=1, hide_code=True)
-def _(mo):
-    mo.md(r"""# Utility functions""")
+    mo.md(r"""## Utility functions""")
     return
 
 
@@ -347,7 +16,7 @@ def _(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(DESIRED_RANKS, NORTAXA_API_BASE_URL, lru_cache, requests):
     # Henter artsdata via API
 
@@ -400,7 +69,7 @@ def _(DESIRED_RANKS, NORTAXA_API_BASE_URL, lru_cache, requests):
     return extract_hierarchy_and_ids, fetch_taxon_data, get_norwegian_name
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     DESIRED_RANKS,
     RATE_LIMIT_DELAY,
@@ -422,7 +91,7 @@ def _(
             return None, None
 
         # Get unique IDs
-        unique_ids = df_work.select("validScientificNameId").drop_nulls().unique().to_series().to_list()
+        unique_ids = df_work.select("validScientificNameId").unique().to_series().to_list()
         total_ids = len(unique_ids)
 
         # Storage for results
@@ -504,7 +173,7 @@ def _(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(pl):
     def add_national_interest_criteria(df_enriched, excel_path=None):
         """
@@ -524,7 +193,7 @@ def _(pl):
         """
         # Use default path if not provided
         if excel_path is None:
-            excel_path = r"Arter av nasjonal forvaltningsinteresse\ArtslisteArtnasjonal_2023_01-31 (1).xlsx"
+            excel_path = r"Arter av nasjonal forvaltningsinteresse/arter_av_nasjonal_forvaltning.xlsx"
 
         # Load Excel with criteria
         df_excel = pl.read_excel(excel_path)
@@ -562,65 +231,305 @@ def _(pl):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""### Rydder og fikser navn""")
+    mo.md(r"""### Lager en ny kolonne som inneholder mulige verdier av arter av nasjonal forvaltning""")
     return
 
 
-@app.function
-def clean_and_rename_columns(df):
-    """
-    Select specific columns and rename them to Norwegian names.
+@app.cell
+def _(pl):
+    def legg_til_kolonne_arteravnasjonal(input_df: pl.DataFrame) -> pl.DataFrame:
+        """
+        Adds a new column 'Art av nasjonal forvaltningsinteresse' to the DataFrame.
 
-    Parameters:
-    -----------
-    df : pl.DataFrame
-        Input dataframe with raw column names
+        The new column is populated based on the values in a predefined list of
+        category columns. If any of these columns have the value "Yes", the new
+        column will contain a comma-separated list of the category names.
+        Otherwise, it will contain the value "Nei".
 
-    Returns:
-    --------
-    pl.DataFrame
-        DataFrame with selected and renamed columns
-    """
-    # Define columns to keep
-    columns_to_keep = [
-        "category", "validScientificNameId", "validScientificName", 
-        "preferredPopularName", "taxonGroupName", "collector", 
-        "dateTimeCollected", "locality", "coordinateUncertaintyInMeters", 
-        "municipality", "county", "individualCount", "latitude", 
-        "longitude", "geometry", "scientificNameRank", "behavior", 
-        "FamilieNavn", "OrdenNavn", "Ansvarsarter", 
-        "Andre spesielt hensynskrevende arter", "Spesielle okologiske former", 
-        "Prioriterte arter", "Fredete arter", "Fremmede arter"
-    ]
+        Args:
+            input_df: The input Polars DataFrame.
 
-    # Define column renaming mapping
-    rename_mapping = {
-        "category": "Kategori",
-        "validScientificName": "Art",
-        "preferredPopularName": "Navn",
-        "taxonGroupName": "Artsgruppe",
-        "validScientificNameId": "Artens ID",
-        "collector": "Observatør",
-        "dateTimeCollected": "Observert dato",
-        "locality": "Lokalitet",
-        "coordinateUncertaintyInMeters": "Usikkerhet meter",
-        "municipality": "Kommune",
-        "county": "Fylke",
-        "individualCount": "Antall",
-        "scientificNameRank": "Taksonomisk nivå",
-        "behavior": "Atferd",
-        "FamilieNavn": "Familie",
-        "OrdenNavn": "Orden",
-        "Spesielle okologiske former": "Spesielle økologiske former"
-    }
+        Returns:
+            A new Polars DataFrame with the added column.
+        """
+        category_columns = [
+            "Ansvarsarter",
+            "Andre spesielt hensynskrevende arter",
+            "Spesielle okologiske former",
+            "Prioriterte arter",
+            "Fredete arter",
+            "Fremmede arter"
+        ]
 
-    # Select columns and rename in one operation
-    cleaned_df = (df
-        .select(columns_to_keep)
-        .rename(rename_mapping)
+        # Build the category list once
+        category_list = pl.concat_list([
+            pl.when(pl.col(col) == "Yes").then(pl.lit(col))
+            for col in category_columns
+        ]).list.drop_nulls()
+
+        return input_df.with_columns(
+            pl.when(category_list.list.len() > 0)
+            .then(category_list.list.join(", "))
+            .otherwise(pl.lit("Nei"))
+            .alias("Art av nasjonal forvaltningsinteresse")
+        )
+    return (legg_til_kolonne_arteravnasjonal,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""### Legger til en kolonne med verdi fra M1941""")
+    return
+
+
+@app.cell
+def _(pl):
+    def legg_til_verdi_m1941(df):
+        """
+        Add 'Verdi M1941' column based on conservation status and criteria.
+    
+        Mapping:
+        - LC → noe verdi
+        - NT → middels verdi
+        - VU or Andre spesielt hensynskrevende arter → stor verdi
+        - EN, CR, or Prioriterte arter → svært stor verdi
+        """
+        return df.with_columns(
+            pl.when(
+                (pl.col("Kategori").is_in(["EN", "CR"])) | 
+                (pl.col("Prioriterte arter") == "Yes")
+            )
+            .then(pl.lit("svært stor verdi"))
+            .when(
+                (pl.col("Kategori") == "VU") | 
+                (pl.col("Andre spesielt hensynskrevende arter") == "Yes")
+            )
+            .then(pl.lit("stor verdi"))
+            .when(pl.col("Kategori") == "NT")
+            .then(pl.lit("middels verdi"))
+            .when(pl.col("Kategori") == "LC")
+            .then(pl.lit("noe verdi"))
+            .otherwise(None)
+            .alias("Verdi M1941")
+        )
+    return
+
+
+@app.cell(column=1, hide_code=True)
+def _():
+    import time
+    from datetime import date
+    from functools import lru_cache
+    import marimo as mo
+    import polars as pl
+    import requests
+
+    # Constants
+    NORTAXA_API_BASE_URL = "https://nortaxa.artsdatabanken.no/api/v1/TaxonName"
+    DESIRED_RANKS = ["Kingdom", "Phylum", "Class", "Order", "Family", "Genus"]
+    RATE_LIMIT_DELAY = 0.1  # seconds between API calls (adjust as needed)
+    return (
+        DESIRED_RANKS,
+        NORTAXA_API_BASE_URL,
+        RATE_LIMIT_DELAY,
+        date,
+        lru_cache,
+        mo,
+        pl,
+        requests,
+        time,
     )
 
-    return cleaned_df
+
+@app.cell
+def _(endelig_datasett_for_nedlastning):
+    endelig_datasett_for_nedlastning
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    valgt_fil = mo.ui.file_browser()
+    valgt_fil
+    return (valgt_fil,)
+
+
+@app.cell
+def _(filepath, mo):
+    orginal_df = mo.sql(
+        f"""
+        SELECT * FROM read_csv('{str(filepath)}');
+        """
+    )
+    return (orginal_df,)
+
+
+@app.cell(hide_code=True)
+def _(valgt_fil):
+    file_info = valgt_fil.value[0]
+    filepath = file_info.path
+    str(filepath)
+    return (filepath,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""### Oppdatere og rydder i datasettet""")
+    return
+
+
+@app.cell
+def _(
+    add_national_interest_criteria,
+    legg_til_kolonne_arteravnasjonal,
+    orginal_df,
+    process_and_enrich_data,
+):
+    df_artsdatabanken, taxonomy_count = process_and_enrich_data(orginal_df) #Gir deg både oppdatert df og antall arter som er fikset
+
+    df_artsdatabanken_og_nasjonal_forvaltning = add_national_interest_criteria(df_artsdatabanken)
+
+    df_artsdatabanken_og_nasjonal_forvaltning_ny_kolonne = legg_til_kolonne_arteravnasjonal(df_artsdatabanken_og_nasjonal_forvaltning)
+    return (df_artsdatabanken_og_nasjonal_forvaltning_ny_kolonne,)
+
+
+@app.cell
+def _(df_artsdatabanken_og_nasjonal_forvaltning_ny_kolonne, pl):
+    #Endrer navn, datatype og rekkefølge i dataframen
+    artsdata_df = ( 
+        df_artsdatabanken_og_nasjonal_forvaltning_ny_kolonne.select([
+        pl.col("category").alias("Kategori"),
+        pl.col("Art av nasjonal forvaltningsinteresse"),
+        pl.col("preferredPopularName").alias("Navn"),
+        pl.col("validScientificName").alias("Art"),
+        
+        pl.col("individualCount")
+            .fill_null("1")
+            .str.split("/") #Noen har en 1/1 antall - anter ikke hva det betyr
+            .list.first()  # Take the first number
+            .cast(pl.Float64) #Noen har komma, så må ta til float først
+            .cast(pl.Int64)
+            .alias("Antall"),
+        
+        pl.col("behavior").alias("Atferd"),
+        pl.col("dateTimeCollected").dt.date().alias("Observert dato"),
+        pl.col("coordinateUncertaintyInMeters").alias("Usikkerhet meter").cast(pl.Int64),
+        pl.col("FamilieNavn").alias("Familie"),
+        pl.col("OrdenNavn").alias("Orden"),
+        pl.col("taxonGroupName").alias("Artsgruppe"),
+        pl.col("collector").alias("Observatør"),
+        pl.col("locality").alias("Lokalitet"),
+        pl.col("municipality").alias("Kommune"),
+        pl.col("county").alias("Fylke"),
+        pl.col("scientificNameRank").alias("Taksonomisk nivå"),
+        pl.col("Ansvarsarter"),
+        pl.col("Andre spesielt hensynskrevende arter"),
+        pl.col("Spesielle okologiske former").alias("Spesielle økologiske former"),
+        pl.col("Prioriterte arter"),
+        pl.col("Fredete arter"),
+        pl.col("Fremmede arter"),    
+        pl.col("latitude").str.replace_all(",", ".").cast(pl.Float64),
+        pl.col("longitude").str.replace_all(",", ".").cast(pl.Float64),
+        pl.col("geometry"),
+        pl.col("validScientificNameId").alias("Artens ID")
+    ])
+    )
+    artsdata_df
+    return (artsdata_df,)
+
+
+@app.cell(column=2)
+def _(artsdata_df):
+    artsdata_df.null_count()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""### Filtrerer ut alt før X tid (default 1990)""")
+    return
+
+
+@app.cell
+def _(artsdata_df, date, pl):
+    arter_etter_1990 = (
+    artsdata_df.filter(pl.col("Observert dato") >= date(1990, 1, 1))
+    )
+    return (arter_etter_1990,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""### Legger til manglende artsnavn (dette steget må du gjøre)""")
+    return
+
+
+@app.cell
+def _(arter_etter_1990, pl):
+    mangler_navn = (
+        arter_etter_1990
+        .filter(pl.col("Navn").is_null() | pl.col("Familie").is_null() | pl.col("Orden").is_null())
+        .select(["Art", "Navn", "Familie", "Orden"])
+        .unique()
+        .sort("Art")
+    )
+
+    mangler_navn
+
+    return (mangler_navn,)
+
+
+@app.cell
+def _(mangler_navn, mo):
+    navn_inputs = mo.ui.dictionary({
+        row["Art"]: mo.ui.text(
+            placeholder="Skriv inn norsk navn..."
+        )
+        for row in mangler_navn.iter_rows(named=True)
+    })
+
+    navn_inputs
+    return (navn_inputs,)
+
+
+@app.cell
+def _(arter_etter_1990, navn_inputs, pl):
+    # Get the mapping of species to Norwegian names from the UI inputs
+    navn_mapping = {
+        art: text_value 
+        for art, text_value in navn_inputs.value.items() 
+        if text_value  # Only include non-empty values
+    }
+
+    # Create a temporary dataframe with the mappings
+    if navn_mapping:
+        mapping_df = pl.DataFrame({
+            "Art": list(navn_mapping.keys()),
+            "Navn_ny": list(navn_mapping.values())
+        })
+    
+        # Join with the original dataframe and update the Navn column
+        endelig_datasett_for_nedlastning = (
+            arter_etter_1990
+            .join(mapping_df, on="Art", how="left")
+            .with_columns(
+                pl.when(pl.col("Navn").is_null() & pl.col("Navn_ny").is_not_null())
+                .then(pl.col("Navn_ny"))
+                .otherwise(pl.col("Navn"))
+                .alias("Navn")
+            )
+            .drop("Navn_ny")
+        )
+    else:
+        # If no names were entered, keep the original dataframe
+        endelig_datasett_for_nedlastning = arter_etter_1990
+
+    return (endelig_datasett_for_nedlastning,)
+
+
+@app.cell(column=3)
+def _():
+    return
 
 
 if __name__ == "__main__":
