@@ -87,8 +87,8 @@ def _(
 
         # Check if required column exists
         if "validScientificNameId" not in df_work.columns:
-            mo.md("❌ Error: 'validScientificNameId' column not found in input data.")
-            return None, None
+            mo.md("Error: 'validScientificNameId' column not found in input data.")
+            return None
 
         # Get unique IDs
         unique_ids = df_work.select("validScientificNameId").unique().to_series().to_list()
@@ -163,7 +163,7 @@ def _(
             .alias("OrdenNavn")
         ])
 
-        return df_work, len(taxonomy_data)
+        return df_work
     return (process_and_enrich_data,)
 
 
@@ -296,23 +296,23 @@ def _(pl):
         """
         return df.with_columns(
             pl.when(
-                (pl.col("Kategori").is_in(["EN", "CR"])) | 
+                (pl.col("category").is_in(["EN", "CR"])) |  
                 (pl.col("Prioriterte arter") == "Yes")
             )
-            .then(pl.lit("svært stor verdi"))
+            .then(pl.lit("Svært stor verdi"))
             .when(
-                (pl.col("Kategori") == "VU") | 
+                (pl.col("category") == "VU") |  
                 (pl.col("Andre spesielt hensynskrevende arter") == "Yes")
             )
-            .then(pl.lit("stor verdi"))
-            .when(pl.col("Kategori") == "NT")
-            .then(pl.lit("middels verdi"))
-            .when(pl.col("Kategori") == "LC")
-            .then(pl.lit("noe verdi"))
+            .then(pl.lit("Stor verdi"))
+            .when(pl.col("category") == "NT")  
+            .then(pl.lit("Middels verdi"))
+            .when(pl.col("category") == "LC")  
+            .then(pl.lit("Noe verdi"))
             .otherwise(None)
             .alias("Verdi M1941")
         )
-    return
+    return (legg_til_verdi_m1941,)
 
 
 @app.cell(column=1, hide_code=True)
@@ -382,24 +382,29 @@ def _(mo):
 def _(
     add_national_interest_criteria,
     legg_til_kolonne_arteravnasjonal,
+    legg_til_verdi_m1941,
     orginal_df,
     process_and_enrich_data,
 ):
     df_artsdatabanken, taxonomy_count = process_and_enrich_data(orginal_df) #Gir deg både oppdatert df og antall arter som er fikset
 
-    df_artsdatabanken_og_nasjonal_forvaltning = add_national_interest_criteria(df_artsdatabanken)
-
-    df_artsdatabanken_og_nasjonal_forvaltning_ny_kolonne = legg_til_kolonne_arteravnasjonal(df_artsdatabanken_og_nasjonal_forvaltning)
-    return (df_artsdatabanken_og_nasjonal_forvaltning_ny_kolonne,)
+    df_alle_funksjoner= (
+        df_artsdatabanken
+        .pipe(add_national_interest_criteria)
+        .pipe(legg_til_kolonne_arteravnasjonal)
+        .pipe(legg_til_verdi_m1941)
+    )
+    return (df_alle_funksjoner,)
 
 
 @app.cell
-def _(df_artsdatabanken_og_nasjonal_forvaltning_ny_kolonne, pl):
+def _(df_alle_funksjoner, pl):
     #Endrer navn, datatype og rekkefølge i dataframen
     artsdata_df = ( 
-        df_artsdatabanken_og_nasjonal_forvaltning_ny_kolonne.select([
+        df_alle_funksjoner.select([
         pl.col("category").alias("Kategori"),
         pl.col("Art av nasjonal forvaltningsinteresse"),
+        pl.col("Verdi M1941"),
         pl.col("preferredPopularName").alias("Navn"),
         pl.col("validScientificName").alias("Art"),
         
