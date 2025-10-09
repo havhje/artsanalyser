@@ -160,47 +160,27 @@ def _(artsdata_kart, map_style_dropdown, mo, px, satellite_toggle):
 
 @app.cell(column=1, hide_code=True)
 def _():
+    import json
+    import os
+    import tempfile
+    import time
+
     import altair as alt
     import marimo as mo
+    import numpy as np
     import pandas as pd
     import plotly.express as px
     import plotly.figure_factory as ff
-    import polars as pl
-    import requests
-    import json
-    import time
-    import tempfile
-    import os
-    import duckdb
-    import pyproj
     import plotly.graph_objects as go
-    from sklearn.cluster import DBSCAN
-    import scipy
-    import numpy as np
-    import tabulate
-    return (
-        alt,
-        ff,
-        go,
-        json,
-        mo,
-        np,
-        os,
-        pd,
-        pl,
-        px,
-        pyproj,
-        requests,
-        tempfile,
-        time,
-    )
+    import polars as pl
+    import pyproj
+    import requests
+    return alt, ff, go, mo, np, pl, px
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    valgt_fil = mo.ui.file_browser(
-        initial_path=r"C:\Users\havh\OneDrive - Multiconsult\Dokumenter\Oppdrag"
-    )
+    valgt_fil = mo.ui.file_browser(initial_path=r"C:\Users\havh\OneDrive - Multiconsult\Dokumenter\Oppdrag")
     valgt_fil
     return (valgt_fil,)
 
@@ -240,38 +220,44 @@ def _(artsdata_df, mo, pl):
     _data = artsdata_df.value
 
     # Basic counts
-    total_species = _data.select('Navn').unique().height
+    total_species = _data.select("Navn").unique().height
     total_observations = _data.height
-    total_individuals = _data.select('Antall').sum().item()
+    total_individuals = _data.select("Antall").sum().item()
 
     # Get unique species with all categories
-    _species_unique = _data.select(['Navn', 'Kategori', 'Ansvarsarter', 
-                                    'Andre spesielt hensynskrevende arter', 
-                                    'Prioriterte arter',
-                                    'Spesielle økologiske former']).unique()
+    _species_unique = _data.select(
+        [
+            "Navn",
+            "Kategori",
+            "Ansvarsarter",
+            "Andre spesielt hensynskrevende arter",
+            "Prioriterte arter",
+            "Spesielle økologiske former",
+        ]
+    ).unique()
 
     # Count by red list category - ALL categories
-    cr_count = _species_unique.filter(pl.col('Kategori') == 'CR').height
-    en_count = _species_unique.filter(pl.col('Kategori') == 'EN').height
-    vu_count = _species_unique.filter(pl.col('Kategori') == 'VU').height
-    nt_count = _species_unique.filter(pl.col('Kategori') == 'NT').height
-    lc_count = _species_unique.filter(pl.col('Kategori') == 'LC').height
-    dd_count = _species_unique.filter(pl.col('Kategori') == 'DD').height
-    ne_count = _species_unique.filter(pl.col('Kategori') == 'NE').height
-    na_count = _species_unique.filter(pl.col('Kategori') == 'NA').height
+    cr_count = _species_unique.filter(pl.col("Kategori") == "CR").height
+    en_count = _species_unique.filter(pl.col("Kategori") == "EN").height
+    vu_count = _species_unique.filter(pl.col("Kategori") == "VU").height
+    nt_count = _species_unique.filter(pl.col("Kategori") == "NT").height
+    lc_count = _species_unique.filter(pl.col("Kategori") == "LC").height
+    dd_count = _species_unique.filter(pl.col("Kategori") == "DD").height
+    ne_count = _species_unique.filter(pl.col("Kategori") == "NE").height
+    na_count = _species_unique.filter(pl.col("Kategori") == "NA").height
 
     # Calculate threatened and red list totals
     threatened_total = cr_count + en_count + vu_count
     redlist_total = threatened_total + nt_count
 
     # Count specific management categories
-    ansvarsarter_count = _species_unique.filter(pl.col('Ansvarsarter') == True).height
-    hensynskrevende_count = _species_unique.filter(pl.col('Andre spesielt hensynskrevende arter') == True).height
-    prioriterte_count = _species_unique.filter(pl.col('Prioriterte arter') == True).height
-    okologiske_former_count = _species_unique.filter(pl.col('Spesielle økologiske former') == True).height
+    ansvarsarter_count = _species_unique.filter(pl.col("Ansvarsarter") == True).height
+    hensynskrevende_count = _species_unique.filter(pl.col("Andre spesielt hensynskrevende arter") == True).height
+    prioriterte_count = _species_unique.filter(pl.col("Prioriterte arter") == True).height
+    okologiske_former_count = _species_unique.filter(pl.col("Spesielle økologiske former") == True).height
 
     # Check for alien species (fremmed art)
-    fremmed_count = _species_unique.filter(pl.col('Kategori').is_in(['SE', 'HI', 'PH', 'LO', 'NK'])).height
+    fremmed_count = _species_unique.filter(pl.col("Kategori").is_in(["SE", "HI", "PH", "LO", "NK"])).height
 
     summary_text = mo.md(f"""
     ## Datasettsammendrag
@@ -313,53 +299,53 @@ def _(artsdata_df, go, mo, pl):
     _pie_data = artsdata_df.value
 
     # Group by species first to get unique species, then count by category
-    _kategori_counts = (_pie_data
-        .select(['Navn', 'Kategori'])
+    _kategori_counts = (
+        _pie_data.select(["Navn", "Kategori"])
         .unique()
-        .group_by('Kategori')
-        .agg([
-            pl.len().alias('count')
-        ])
+        .group_by("Kategori")
+        .agg([pl.len().alias("count")])
         # Filter to only include specified categories
-        .filter(pl.col('Kategori').is_in(['LC', 'NT', 'VU', 'EN', 'CR', 'DD', 'NE', 'NA']))
+        .filter(pl.col("Kategori").is_in(["LC", "NT", "VU", "EN", "CR", "DD", "NE", "NA"]))
     )
 
     # Norwegian category names
     _kategori_names = {
-        'CR': 'Kritisk truet',
-        'EN': 'Sterkt truet',
-        'VU': 'Sårbar',
-        'NT': 'Nær truet',
-        'LC': 'Livskraftig',
-        'DD': 'Datamangel',
-        'NE': 'Ikke vurdert',
-        'NA': 'Ikke egnet'
+        "CR": "Kritisk truet",
+        "EN": "Sterkt truet",
+        "VU": "Sårbar",
+        "NT": "Nær truet",
+        "LC": "Livskraftig",
+        "DD": "Datamangel",
+        "NE": "Ikke vurdert",
+        "NA": "Ikke egnet",
     }
 
     # Add Norwegian names with code and count to the dataframe
     _kategori_counts = _kategori_counts.with_columns(
-        pl.concat_str([
-            pl.col('Kategori').map_elements(
-                lambda x: _kategori_names.get(x, x),
-                return_dtype=pl.Utf8
-            ),
-            pl.lit(' ['),
-            pl.col('Kategori'),
-            pl.lit(']; '),
-            pl.col('count').cast(pl.Utf8)
-        ]).alias('Kategori_norsk')
+        pl.concat_str(
+            [
+                pl.col("Kategori").map_elements(lambda x: _kategori_names.get(x, x), return_dtype=pl.Utf8),
+                pl.lit(" ["),
+                pl.col("Kategori"),
+                pl.lit("]; "),
+                pl.col("count").cast(pl.Utf8),
+            ]
+        ).alias("Kategori_norsk")
     )
 
     # Define the specific order for the pie chart (from least to most threatened)
-    _category_order = ['LC', 'NT', 'VU', 'EN', 'CR', 'DD', 'NE', 'NA']
+    _category_order = ["LC", "NT", "VU", "EN", "CR", "DD", "NE", "NA"]
 
     # Add sort column and sort by the defined order
-    _kategori_counts = _kategori_counts.with_columns(
-        pl.col('Kategori').map_elements(
-            lambda x: _category_order.index(x) if x in _category_order else 999,
-            return_dtype=pl.Int32
-        ).alias('sort_order')
-    ).sort('sort_order').drop('sort_order')
+    _kategori_counts = (
+        _kategori_counts.with_columns(
+            pl.col("Kategori")
+            .map_elements(lambda x: _category_order.index(x) if x in _category_order else 999, return_dtype=pl.Int32)
+            .alias("sort_order")
+        )
+        .sort("sort_order")
+        .drop("sort_order")
+    )
 
     # Convert to pandas and ensure order is maintained
     _kategori_df = _kategori_counts.to_pandas()
@@ -368,49 +354,48 @@ def _(artsdata_df, go, mo, pl):
     _ordered_names = []
     _ordered_counts = []
     for cat in _category_order:
-        _row = _kategori_df[_kategori_df['Kategori'] == cat]
+        _row = _kategori_df[_kategori_df["Kategori"] == cat]
         if not _row.empty:
-            _ordered_names.append(_row['Kategori_norsk'].values[0])
-            _ordered_counts.append(_row['count'].values[0])
+            _ordered_names.append(_row["Kategori_norsk"].values[0])
+            _ordered_counts.append(_row["count"].values[0])
 
     # Official IUCN Red List color scheme
     _iucn_colors_by_code = {
-        'CR': '#D81E05',     # Critically Endangered
-        'EN': '#FC7F3F',     # Endangered
-        'VU': '#F9E814',     # Vulnerable
-        'NT': '#CCE226',     # Near threatened
-        'LC': '#60C659',     # Least Concern
-        'DD': '#D1D1C6',     # Data Deficient
-        'NE': '#FFFFFF',     # Not Evaluated
-        'NA': '#C1B5A5'      # Not Applicable
+        "CR": "#D81E05",  # Critically Endangered
+        "EN": "#FC7F3F",  # Endangered
+        "VU": "#F9E814",  # Vulnerable
+        "NT": "#CCE226",  # Near threatened
+        "LC": "#60C659",  # Least Concern
+        "DD": "#D1D1C6",  # Data Deficient
+        "NE": "#FFFFFF",  # Not Evaluated
+        "NA": "#C1B5A5",  # Not Applicable
     }
 
     # Create color list in the same order as the data
     _ordered_colors = []
     for cat in _category_order:
-        _row = _kategori_df[_kategori_df['Kategori'] == cat]
+        _row = _kategori_df[_kategori_df["Kategori"] == cat]
         if not _row.empty:
-            _ordered_colors.append(_iucn_colors_by_code.get(cat, '#888888'))
+            _ordered_colors.append(_iucn_colors_by_code.get(cat, "#888888"))
 
     # Create pie chart with explicit ordering
-    fig_pie = go.Figure(data=[go.Pie(
-        labels=_ordered_names,
-        values=_ordered_counts,
-        marker=dict(colors=_ordered_colors),
-        hole=0.3,
-        textposition='inside',
-        textinfo='label',
-        hovertemplate='<b>%{label}</b><br>Arter: %{value}<br>Andel: %{percent}<extra></extra>',
-        sort=False  # Important: don't let plotly sort
-    )])
+    fig_pie = go.Figure(
+        data=[
+            go.Pie(
+                labels=_ordered_names,
+                values=_ordered_counts,
+                marker=dict(colors=_ordered_colors),
+                hole=0.3,
+                textposition="inside",
+                textinfo="label",
+                hovertemplate="<b>%{label}</b><br>Arter: %{value}<br>Andel: %{percent}<extra></extra>",
+                sort=False,  # Important: don't let plotly sort
+            )
+        ]
+    )
 
     # Update layout for better appearance
-    fig_pie.update_layout(
-        title='Antall arter fordelt på rødlistekategorier',
-        height=600,
-        width=800,
-        showlegend=False
-    )
+    fig_pie.update_layout(title="Antall arter fordelt på rødlistekategorier", height=600, width=800, showlegend=False)
 
     mo.ui.plotly(fig_pie)
     return
@@ -419,129 +404,132 @@ def _(artsdata_df, go, mo, pl):
 @app.cell(hide_code=True)
 def _(artsdata_df, pl):
     import great_tables as gt
-    from great_tables import loc, style
 
     # Get selected data from the table
     _obs_data = artsdata_df.value
 
     # Calculate per-species statistics
-    _species_stats = (_obs_data
-        .group_by('Navn')
-        .agg([
-            pl.len().alias('Observasjoner'),
-            pl.col('Antall').sum().alias('Individer'),
-            pl.col('Familie').first().alias('Familie'),
-            pl.col('Orden').first().alias('Orden'),
-            pl.col('Kategori').first().alias('Kategori'),
-            pl.col('Ansvarsarter').first().alias('Ansvarsarter'),
-            pl.col('Andre spesielt hensynskrevende arter').first().alias('Andre spesielt hensynskrevende arter'),
-            pl.col('Prioriterte arter').first().alias('Prioriterte arter'),
-            pl.col('Observert dato').dt.year().min().alias('År fra'),
-            pl.col('Observert dato').dt.year().max().alias('År til'),
-            pl.col('Antall').mean().alias('Gj.snitt individer'),
-            pl.col('Observert dato').dt.month().unique().sort().alias('Måneder_num')
-        ])
-        .with_columns([
-            pl.when(pl.col('År fra') == pl.col('År til'))
-            .then(pl.col('År fra').cast(pl.Utf8))
-            .otherwise(pl.concat_str([pl.col('År fra'), pl.lit('-'), pl.col('År til')]))
-            .alias('År-periode'),
-            pl.col('Måneder_num').map_elements(
-                lambda months: ', '.join([
-                    ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 
-                     'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'][m-1] 
-                    for m in months if m is not None
-                ]),
-                return_dtype=pl.Utf8
-            ).alias('Måneder'),
-            # Create Øvrige kategorier column
-            pl.concat_list([
-                pl.when(pl.col('Ansvarsarter')).then(pl.lit('Ansvarsart')).otherwise(pl.lit(None)),
-                pl.when(pl.col('Andre spesielt hensynskrevende arter')).then(pl.lit('Hensynskrevende')).otherwise(pl.lit(None)),
-                pl.when(pl.col('Prioriterte arter')).then(pl.lit('Prioritert')).otherwise(pl.lit(None))
-            ]).list.drop_nulls().list.join(', ').alias('Øvrige kategorier')
-        ]))
+    _species_stats = (
+        _obs_data.group_by("Navn")
+        .agg(
+            [
+                pl.len().alias("Observasjoner"),
+                pl.col("Antall").sum().alias("Individer"),
+                pl.col("Familie").first().alias("Familie"),
+                pl.col("Orden").first().alias("Orden"),
+                pl.col("Kategori").first().alias("Kategori"),
+                pl.col("Ansvarsarter").first().alias("Ansvarsarter"),
+                pl.col("Andre spesielt hensynskrevende arter").first().alias("Andre spesielt hensynskrevende arter"),
+                pl.col("Prioriterte arter").first().alias("Prioriterte arter"),
+                pl.col("Observert dato").dt.year().min().alias("År fra"),
+                pl.col("Observert dato").dt.year().max().alias("År til"),
+                pl.col("Antall").mean().alias("Gj.snitt individer"),
+                pl.col("Observert dato").dt.month().unique().sort().alias("Måneder_num"),
+            ]
+        )
+        .with_columns(
+            [
+                pl.when(pl.col("År fra") == pl.col("År til"))
+                .then(pl.col("År fra").cast(pl.Utf8))
+                .otherwise(pl.concat_str([pl.col("År fra"), pl.lit("-"), pl.col("År til")]))
+                .alias("År-periode"),
+                pl.col("Måneder_num")
+                .map_elements(
+                    lambda months: ", ".join(
+                        [
+                            ["Jan", "Feb", "Mar", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Des"][m - 1]
+                            for m in months
+                            if m is not None
+                        ]
+                    ),
+                    return_dtype=pl.Utf8,
+                )
+                .alias("Måneder"),
+                # Create Øvrige kategorier column
+                pl.concat_list(
+                    [
+                        pl.when(pl.col("Ansvarsarter")).then(pl.lit("Ansvarsart")).otherwise(pl.lit(None)),
+                        pl.when(pl.col("Andre spesielt hensynskrevende arter"))
+                        .then(pl.lit("Hensynskrevende"))
+                        .otherwise(pl.lit(None)),
+                        pl.when(pl.col("Prioriterte arter")).then(pl.lit("Prioritert")).otherwise(pl.lit(None)),
+                    ]
+                )
+                .list.drop_nulls()
+                .list.join(", ")
+                .alias("Øvrige kategorier"),
+            ]
+        )
+    )
 
     # Calculate activity counts per species - only for reproductive behaviors
-    _activity_counts = (_obs_data
-        .filter(pl.col('Atferd').is_in(['Reproduksjon', 'Mulig reproduksjon']))
-        .group_by(['Navn', 'Atferd'])
-        .agg(pl.len().alias('count'))
-        .pivot(
-            values='count',
-            index='Navn',
-            on='Atferd',
-            aggregate_function='sum'
-        )
+    _activity_counts = (
+        _obs_data.filter(pl.col("Atferd").is_in(["Reproduksjon", "Mulig reproduksjon"]))
+        .group_by(["Navn", "Atferd"])
+        .agg(pl.len().alias("count"))
+        .pivot(values="count", index="Navn", on="Atferd", aggregate_function="sum")
         .fill_null(0)
     )
 
     # Join activity counts with species stats
-    _species_stats = _species_stats.join(_activity_counts, on='Navn', how='left')
+    _species_stats = _species_stats.join(_activity_counts, on="Navn", how="left")
 
     # Fill nulls with 0 for species without any reproductive activities
-    if 'Reproduksjon' in _species_stats.columns:
-        _species_stats = _species_stats.with_columns(pl.col('Reproduksjon').fill_null(0))
+    if "Reproduksjon" in _species_stats.columns:
+        _species_stats = _species_stats.with_columns(pl.col("Reproduksjon").fill_null(0))
     else:
-        _species_stats = _species_stats.with_columns(pl.lit(0).alias('Reproduksjon'))
+        _species_stats = _species_stats.with_columns(pl.lit(0).alias("Reproduksjon"))
 
-    if 'Mulig reproduksjon' in _species_stats.columns:
-        _species_stats = _species_stats.with_columns(pl.col('Mulig reproduksjon').fill_null(0))
+    if "Mulig reproduksjon" in _species_stats.columns:
+        _species_stats = _species_stats.with_columns(pl.col("Mulig reproduksjon").fill_null(0))
     else:
-        _species_stats = _species_stats.with_columns(pl.lit(0).alias('Mulig reproduksjon'))
+        _species_stats = _species_stats.with_columns(pl.lit(0).alias("Mulig reproduksjon"))
 
     # Define custom sort order for Kategori
-    _kategori_order = {'CR': 1, 'EN': 2, 'VU': 3, 'NT': 4, 'LC': 5}
+    _kategori_order = {"CR": 1, "EN": 2, "VU": 3, "NT": 4, "LC": 5}
 
     # Add sort key and sort by Kategori order, then by Observasjoner
-    _species_stats = _species_stats.with_columns(
-        pl.col('Kategori').map_elements(
-            lambda x: _kategori_order.get(x, 999), 
-            return_dtype=pl.Int32
-        ).alias('kategori_sort')
-    ).sort(['kategori_sort', 'Observasjoner'], descending=[False, True]).drop('kategori_sort')
+    _species_stats = (
+        _species_stats.with_columns(
+            pl.col("Kategori")
+            .map_elements(lambda x: _kategori_order.get(x, 999), return_dtype=pl.Int32)
+            .alias("kategori_sort")
+        )
+        .sort(["kategori_sort", "Observasjoner"], descending=[False, True])
+        .drop("kategori_sort")
+    )
 
     # IMPORTANT: Remove underscore to make accessible from other cells
-    species_stats_formatted = _species_stats.select([
-        'Kategori',
-        'Øvrige kategorier',
-        'Navn',
-        'Observasjoner',
-        'Individer',
-        'Gj.snitt individer',
-        'År-periode',
-        'Måneder',
-        'Familie',
-        'Orden',
-        'Reproduksjon',
-        'Mulig reproduksjon'
-    ])
+    species_stats_formatted = _species_stats.select(
+        [
+            "Kategori",
+            "Øvrige kategorier",
+            "Navn",
+            "Observasjoner",
+            "Individer",
+            "Gj.snitt individer",
+            "År-periode",
+            "Måneder",
+            "Familie",
+            "Orden",
+            "Reproduksjon",
+            "Mulig reproduksjon",
+        ]
+    )
 
     # Create the species statistics table
     species_table = (
         gt.GT(species_stats_formatted.to_pandas())  # Show all species
         .tab_header(
             title="Statistikk per art med aktiviteter",
-            subtitle=f"Alle {_species_stats.height} arter sortert etter rødlistekategori"
+            subtitle=f"Alle {_species_stats.height} arter sortert etter rødlistekategori",
         )
         .fmt_number(
-            columns=['Observasjoner', 'Individer', 'Reproduksjon', 'Mulig reproduksjon'],
-            decimals=0,
-            use_seps=True
+            columns=["Observasjoner", "Individer", "Reproduksjon", "Mulig reproduksjon"], decimals=0, use_seps=True
         )
-        .fmt_number(
-            columns=['Gj.snitt individer'],
-            decimals=1
-        )
-        .tab_spanner(
-            label="Aktiviteter",
-            columns=['Reproduksjon', 'Mulig reproduksjon']
-        )
-        .tab_options(
-            table_font_size="12px",
-            heading_title_font_size="16px",
-            column_labels_font_size="13px"
-        )
+        .fmt_number(columns=["Gj.snitt individer"], decimals=1)
+        .tab_spanner(label="Aktiviteter", columns=["Reproduksjon", "Mulig reproduksjon"])
+        .tab_options(table_font_size="12px", heading_title_font_size="16px", column_labels_font_size="13px")
     )
 
     species_table
@@ -589,76 +577,70 @@ def _(artsdata_df, mo, pl, px):
     _sunburst_data = []
 
     # Add Orders
-    _orden_stats = (_selected_data
-        .group_by('Orden')
-        .agg([
-            pl.len().alias('observations'),
-            pl.col('Antall').sum().alias('individuals')
-        ])
+    _orden_stats = _selected_data.group_by("Orden").agg(
+        [pl.len().alias("observations"), pl.col("Antall").sum().alias("individuals")]
     )
 
     for row in _orden_stats.iter_rows(named=True):
-        _sunburst_data.append({
-            'labels': row['Orden'],
-            'parents': '',
-            'values': row['individuals'],
-            'observations': row['observations'],
-            'level': 'Orden'
-        })
+        _sunburst_data.append(
+            {
+                "labels": row["Orden"],
+                "parents": "",
+                "values": row["individuals"],
+                "observations": row["observations"],
+                "level": "Orden",
+            }
+        )
 
     # Add Families
-    _familie_stats = (_selected_data
-        .group_by(['Orden', 'Familie'])
-        .agg([
-            pl.len().alias('observations'),
-            pl.col('Antall').sum().alias('individuals')
-        ])
+    _familie_stats = _selected_data.group_by(["Orden", "Familie"]).agg(
+        [pl.len().alias("observations"), pl.col("Antall").sum().alias("individuals")]
     )
 
     for row in _familie_stats.iter_rows(named=True):
-        _sunburst_data.append({
-            'labels': row['Familie'],
-            'parents': row['Orden'],
-            'values': row['individuals'],
-            'observations': row['observations'],
-            'level': 'Familie'
-        })
+        _sunburst_data.append(
+            {
+                "labels": row["Familie"],
+                "parents": row["Orden"],
+                "values": row["individuals"],
+                "observations": row["observations"],
+                "level": "Familie",
+            }
+        )
 
     # Add Species
-    _species_stats = (_selected_data
-        .group_by(['Familie', 'Navn'])
-        .agg([
-            pl.len().alias('observations'),
-            pl.col('Antall').sum().alias('individuals')
-        ])
+    _species_stats = _selected_data.group_by(["Familie", "Navn"]).agg(
+        [pl.len().alias("observations"), pl.col("Antall").sum().alias("individuals")]
     )
 
     for row in _species_stats.iter_rows(named=True):
-        _sunburst_data.append({
-            'labels': row['Navn'],
-            'parents': row['Familie'],
-            'values': row['individuals'],
-            'observations': row['observations'],
-            'level': 'Art'
-        })
+        _sunburst_data.append(
+            {
+                "labels": row["Navn"],
+                "parents": row["Familie"],
+                "values": row["individuals"],
+                "observations": row["observations"],
+                "level": "Art",
+            }
+        )
 
     _sunburst_df = pl.DataFrame(_sunburst_data).to_pandas()
 
     # Create sunburst chart
     fig_sunburst = px.sunburst(
         _sunburst_df,
-        names='labels',
-        parents='parents',
-        values='values',
-        color='level',
-        color_discrete_map={'Orden': '#1f77b4', 'Familie': '#ff7f0e', 'Art': '#2ca02c'},
-        hover_data={'observations': True, 'values': True},
-        title='Taksonomisk hierarki - Sunburst'
+        names="labels",
+        parents="parents",
+        values="values",
+        color="level",
+        color_discrete_map={"Orden": "#1f77b4", "Familie": "#ff7f0e", "Art": "#2ca02c"},
+        hover_data={"observations": True, "values": True},
+        title="Taksonomisk hierarki - Sunburst",
     )
 
     fig_sunburst.update_traces(
         textinfo="label+value",
-        hovertemplate='<b>%{label}</b><br>Individer: %{value}<br>Observasjoner: %{customdata[0]}<extra></extra>'
+        hovertemplate="<b>%{label}</b><br>Individer: %{value}<br>Observasjoner: %{customdata[0]}<extra></extra>",
     )
 
     fig_sunburst.update_layout(height=1000, width=1200)
@@ -693,9 +675,7 @@ def _(alt, artsdata_tid, mo, pl):
         .agg(
             [
                 pl.len().alias("observation_count"),  # Using pl.len() as requested
-                pl.col("Antall")
-                .sum()
-                .alias("individual_count"),  # Sum of individuals
+                pl.col("Antall").sum().alias("individual_count"),  # Sum of individuals
             ]
         )
         .sort("year")
@@ -714,9 +694,7 @@ def _(alt, artsdata_tid, mo, pl):
                 alt.Tooltip("observation_count:Q", title="Antall observasjoner"),
             ],
         )
-        .properties(
-            width=900, height=400, title="Antall individer observert per år"
-        )
+        .properties(width=900, height=400, title="Antall individer observert per år")
         .interactive()
     )
 
@@ -751,10 +729,7 @@ def _(alt, artsdata_tid, mo, pl, toggle, window_size):
             [
                 pl.col("Observert dato").dt.date().alias("date"),
                 pl.col("Observert dato").dt.year().alias("year"),
-                pl.col("Antall")
-                .cast(pl.Int64, strict=False)
-                .fill_null(1)
-                .alias("ind_count"),
+                pl.col("Antall").cast(pl.Int64, strict=False).fill_null(1).alias("ind_count"),
             ]
         )
         .group_by("date")
@@ -766,13 +741,7 @@ def _(alt, artsdata_tid, mo, pl, toggle, window_size):
             ]
         )
         # Create a synthetic date using year 2024 for all data to show pattern
-        .with_columns(
-            [
-                pl.date(
-                    2024, pl.col("date").dt.month(), pl.col("date").dt.day()
-                ).alias("common_date")
-            ]
-        )
+        .with_columns([pl.date(2024, pl.col("date").dt.month(), pl.col("date").dt.day()).alias("common_date")])
         .group_by("common_date")
         .agg(
             [
@@ -790,19 +759,11 @@ def _(alt, artsdata_tid, mo, pl, toggle, window_size):
         .with_columns(
             [
                 # Rolling averages
-                pl.col("avg_daily_obs")
-                .rolling_mean(window_size.value, center=True)
-                .alias("rolling_avg_obs"),
-                pl.col("avg_daily_ind")
-                .rolling_mean(window_size.value, center=True)
-                .alias("rolling_avg_ind"),
+                pl.col("avg_daily_obs").rolling_mean(window_size.value, center=True).alias("rolling_avg_obs"),
+                pl.col("avg_daily_ind").rolling_mean(window_size.value, center=True).alias("rolling_avg_ind"),
                 # Standard errors
-                (pl.col("std_daily_obs") / pl.col("n_years").sqrt()).alias(
-                    "se_obs"
-                ),
-                (pl.col("std_daily_ind") / pl.col("n_years").sqrt()).alias(
-                    "se_ind"
-                ),
+                (pl.col("std_daily_obs") / pl.col("n_years").sqrt()).alias("se_obs"),
+                (pl.col("std_daily_ind") / pl.col("n_years").sqrt()).alias("se_ind"),
             ]
         )
         .with_columns(
@@ -822,12 +783,8 @@ def _(alt, artsdata_tid, mo, pl, toggle, window_size):
             alt.Chart(daily_stats)
             .mark_area(opacity=0.3, color="lightblue")
             .encode(
-                x=alt.X(
-                    "common_date:T", title="Dato", axis=alt.Axis(format="%d %b")
-                ),
-                y=alt.Y(
-                    "lower_obs:Q", title="Rullerende gjennomsnitt (observasjoner)"
-                ),
+                x=alt.X("common_date:T", title="Dato", axis=alt.Axis(format="%d %b")),
+                y=alt.Y("lower_obs:Q", title="Rullerende gjennomsnitt (observasjoner)"),
                 y2="upper_obs:Q",
             )
             + alt.Chart(daily_stats)
@@ -856,12 +813,8 @@ def _(alt, artsdata_tid, mo, pl, toggle, window_size):
             alt.Chart(daily_stats)
             .mark_area(opacity=0.3, color="peachpuff")
             .encode(
-                x=alt.X(
-                    "common_date:T", title="Dato", axis=alt.Axis(format="%d %b")
-                ),
-                y=alt.Y(
-                    "lower_ind:Q", title="Rullerende gjennomsnitt (individer)"
-                ),
+                x=alt.X("common_date:T", title="Dato", axis=alt.Axis(format="%d %b")),
+                y=alt.Y("lower_ind:Q", title="Rullerende gjennomsnitt (individer)"),
                 y2="upper_ind:Q",
             )
             + alt.Chart(daily_stats)
@@ -917,8 +870,8 @@ def _(mo):
 def _(artsdata_df, dataframe_selector, mo, okosystem_arter_df):
     # Add this at the beginning of the cell that uses okosystem_arter_df
     mo.stop(
-        'okosystem_arter_df' not in globals() and dataframe_selector.value != "Alle arter",
-        mo.md("⚠️ **Run the ecosystem overlay analysis first to use filtered data**")
+        "okosystem_arter_df" not in globals() and dataframe_selector.value != "Alle arter",
+        mo.md("⚠️ **Run the ecosystem overlay analysis first to use filtered data**"),
     )
 
     # Your existing logic continues here
@@ -969,17 +922,13 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(artsdata_fg, metric_dropdown, pl):
     if metric_dropdown.value == "Antall individer":
-        aggregated_data = artsdata_fg.group_by("Navn").agg(
-            pl.col("Antall").sum().alias("Total")
-        )
+        aggregated_data = artsdata_fg.group_by("Navn").agg(pl.col("Antall").sum().alias("Total"))
         y_label = "Antall individer"
     elif metric_dropdown.value == "Antall observasjoner":
         aggregated_data = artsdata_fg.group_by("Navn").agg(pl.len().alias("Total"))
         y_label = "Antall observasjoner"
     else:
-        aggregated_data = artsdata_fg.group_by("Navn").agg(
-            pl.col("Antall").mean().alias("Total")
-        )
+        aggregated_data = artsdata_fg.group_by("Navn").agg(pl.col("Antall").mean().alias("Total"))
         y_label = "Gjennomsnitt individer per observasjon"
 
     # Join with species information - INCLUDING THE SPECIAL CATEGORIES
@@ -1027,16 +976,12 @@ def _(data_with_info, grouping_dropdown, pl):
         # Add sort priority column
         data_with_priority = data_with_info.with_columns(
             pl.col("Kategori")
-            .map_elements(
-                lambda x: kategori_priority.get(x, 999), return_dtype=pl.Int32
-            )
+            .map_elements(lambda x: kategori_priority.get(x, 999), return_dtype=pl.Int32)
             .alias("kategori_priority")
         )
 
         # Sort by category priority first, then by Total within each group
-        sorted_data = data_with_priority.sort(
-            ["kategori_priority", "Total"], descending=[False, True]
-        )
+        sorted_data = data_with_priority.sort(["kategori_priority", "Total"], descending=[False, True])
 
         # Remove the temporary priority column
         sorted_data = sorted_data.drop("kategori_priority")
@@ -1046,43 +991,33 @@ def _(data_with_info, grouping_dropdown, pl):
         color_field = "Familie"
         color_title = "Familie"
         # Sort alphabetically by Familie, then by Total within each group
-        sorted_data = data_with_info.sort(
-            [sort_field, "Total"], descending=[False, True]
-        )
+        sorted_data = data_with_info.sort([sort_field, "Total"], descending=[False, True])
 
     else:
         sort_field = "Orden"
         color_field = "Orden"
         color_title = "Orden"
         # Sort alphabetically by Orden, then by Total within each group
-        sorted_data = data_with_info.sort(
-            [sort_field, "Total"], descending=[False, True]
-        )
+        sorted_data = data_with_info.sort([sort_field, "Total"], descending=[False, True])
 
     # Calculate group totals for annotations
     group_totals = sorted_data.group_by(sort_field).agg(
         [
             pl.col("Total").sum().alias("GroupTotal"),
             pl.col("Navn").count().alias("SpeciesCount"),
-            pl.col("Navn")
-            .first()
-            .alias("FirstSpecies"),  # To position the annotation
+            pl.col("Navn").first().alias("FirstSpecies"),  # To position the annotation
             pl.col("Navn").last().alias("LastSpecies"),
         ]
     )
 
     # Add x-position for each species (for separator lines)
-    sorted_data_with_pos = sorted_data.with_columns(
-        pl.arange(0, sorted_data.height).alias("x_position")
-    )
+    sorted_data_with_pos = sorted_data.with_columns(pl.arange(0, sorted_data.height).alias("x_position"))
 
     # Find group boundaries for separator lines
     group_boundaries = (
         sorted_data_with_pos.group_by(sort_field)
         .agg(pl.col("x_position").max().alias("last_position"))
-        .filter(
-            pl.col("last_position") < sorted_data_with_pos.height - 1
-        )  # Exclude last group
+        .filter(pl.col("last_position") < sorted_data_with_pos.height - 1)  # Exclude last group
         .with_columns((pl.col("last_position") + 0.5).alias("separator_position"))
     )
 
@@ -1092,11 +1027,7 @@ def _(data_with_info, grouping_dropdown, pl):
     # Get unique values for consistent color ordering
     if grouping_dropdown.value == "Art (kategori)":
         # Use the explicit order for categories
-        unique_groups = [
-            cat
-            for cat in kategori_order
-            if cat in sorted_data[sort_field].unique()
-        ]
+        unique_groups = [cat for cat in kategori_order if cat in sorted_data[sort_field].unique()]
     else:
         # Use alphabetical order for other groupings
         unique_groups = sorted_data[sort_field].unique().sort().to_list()
@@ -1157,9 +1088,7 @@ def _(
         legend_sort = color_domain  # Explicit sort order for legend
     else:
         # Use default color scheme for Familie and Orden
-        color_scale = alt.Scale(
-            scheme="category20" if len(unique_groups) > 10 else "category10"
-        )
+        color_scale = alt.Scale(scheme="category20" if len(unique_groups) > 10 else "category10")
         legend_sort = unique_groups  # Alphabetical order from Cell 3
 
     # Create color encoding with explicit sort order
@@ -1224,9 +1153,7 @@ def _(
                 alt.Tooltip("Familie", title="Familie"),
                 alt.Tooltip("Orden", title="Orden"),
                 alt.Tooltip("Ansvarsarter", title="Ansvarsart"),
-                alt.Tooltip(
-                    "Andre spesielt hensynskrevende arter", title="Hensynskrevende"
-                ),
+                alt.Tooltip("Andre spesielt hensynskrevende arter", title="Hensynskrevende"),
                 alt.Tooltip("Prioriterte arter", title="Prioritert"),
             ],
         )
@@ -1282,9 +1209,7 @@ def _(
                     marker_rank="rank()",
                     groupby=["Navn"],
                 )
-                .transform_calculate(
-                    y_pos=f"datum.Total + {marker_offset} * datum.marker_rank"
-                )
+                .transform_calculate(y_pos=f"datum.Total + {marker_offset} * datum.marker_rank")
             )
 
             # Layer the charts with shared Y-scale
@@ -1341,338 +1266,6 @@ def _(alt, artsdata_fg, mo):
 
     atferd_figur
     return
-
-
-@app.cell(column=5, hide_code=True)
-def _(mo):
-    mo.md(r"""## Overlagsanalyse mot hovedøkosystemkartet""")
-    return
-
-
-@app.cell(hide_code=True)
-def _(arter_df, mo, pd):
-    mo.stop(True, mo.md("⚠️ **Execution stopped**"))
-
-    # Extract UTM coordinates from geometry column
-    coords_utm = mo.sql("""
-        SELECT 
-            TRY_CAST(regexp_extract(geometry, 'POINT \\(([0-9.]+)', 1) AS DOUBLE) as x,
-            TRY_CAST(regexp_extract(geometry, 'POINT \\([0-9.]+ ([0-9.]+)', 1) AS DOUBLE) as y
-        FROM arter_df
-        WHERE geometry IS NOT NULL 
-            AND geometry != ''
-            AND geometry LIKE 'POINT%'
-    """)
-
-    # Calculate bounding box with 10% buffer
-    bbox_utm = mo.sql("""
-        SELECT 
-            MIN(x) - (MAX(x) - MIN(x)) * 0.1 as xmin,
-            MAX(x) + (MAX(x) - MIN(x)) * 0.1 as xmax,
-            MIN(y) - (MAX(y) - MIN(y)) * 0.1 as ymin,
-            MAX(y) + (MAX(y) - MIN(y)) * 0.1 as ymax,
-            (MAX(x) - MIN(x)) * (MAX(y) - MIN(y)) / 1000000 as area_km2
-        FROM coords_utm
-        WHERE x IS NOT NULL AND y IS NOT NULL
-    """)
-
-    # Convert to pandas DataFrame and extract values
-    if hasattr(bbox_utm, "to_pandas"):
-        bbox_df = bbox_utm.to_pandas()
-    else:
-        bbox_df = pd.DataFrame(bbox_utm)
-
-    # Extract values from the DataFrame
-    xmin = float(bbox_df["xmin"].values[0])
-    xmax = float(bbox_df["xmax"].values[0])
-    ymin = float(bbox_df["ymin"].values[0])
-    ymax = float(bbox_df["ymax"].values[0])
-    area_km2 = float(bbox_df["area_km2"].values[0])
-
-    mo.md(f"""
-    ### Bounding Box UTM Zone 33N (EPSG:25833)
-    - **X Range:** {xmin:.0f} - {xmax:.0f}
-    - **Y Range:** {ymin:.0f} - {ymax:.0f}
-    - **Area:** {area_km2:.1f} km²
-    """)
-    return area_km2, coords_utm, xmax, xmin, ymax, ymin
-
-
-@app.cell(hide_code=True)
-def _(
-    area_km2,
-    go,
-    map_style_dropdown,
-    mo,
-    pyproj,
-    satellite_toggle,
-    xmax,
-    xmin,
-    ymax,
-    ymin,
-):
-    # Convert UTM bounding box corners to lat/lon for map display
-
-    # Create transformer from UTM Zone 33N to WGS84
-    transformer = pyproj.Transformer.from_crs(
-        "EPSG:25833", "EPSG:4326", always_xy=True
-    )
-
-    # Convert bounding box corners to lat/lon
-    bbox_corners_utm = [
-        (xmin, ymin),
-        (xmax, ymin),
-        (xmax, ymax),
-        (xmin, ymax),
-        (xmin, ymin),  # Close the polygon
-    ]
-
-    bbox_lons = []
-    bbox_lats = []
-    for x, y in bbox_corners_utm:
-        lon, lat = transformer.transform(x, y)
-        bbox_lons.append(lon)
-        bbox_lats.append(lat)
-
-    # Create plotly map figure
-    fig_map_bbox = go.Figure()
-
-    # Add the bounding box as a polygon on the map
-    fig_map_bbox.add_trace(
-        go.Scattermap(
-            mode="lines",
-            lon=bbox_lons,
-            lat=bbox_lats,
-            fill="toself",
-            fillcolor="rgba(255, 0, 0, 0.2)",
-            line=dict(width=3, color="red"),
-            name="Bounding Box",
-            text=f"Area: {area_km2:.1f} km²",
-        )
-    )
-
-    # Calculate center of bounding box for map centering
-    center_lon = sum(bbox_lons[:-1]) / 4
-    center_lat = sum(bbox_lats[:-1]) / 4
-
-    # Set zoom level - higher values zoom in more (typically 0-20)
-    # zoom = 9  # City level
-    # zoom = 12  # Neighborhood level
-    # zoom = 15  # Street level
-    zoom_level = 7
-
-    # Update layout with map settings
-    fig_map_bbox.update_layout(
-        map=dict(
-            style=map_style_dropdown.value,
-            center=dict(lat=center_lat, lon=center_lon),
-            zoom=zoom_level,
-        ),
-        height=700,
-        title="UTM Zone 33N Bounding Box on Map",
-        showlegend=True,
-    )
-
-    # Add satellite imagery if toggle is on
-    if satellite_toggle.value:
-        fig_map_bbox.update_layout(
-            map_style="white-bg",
-            map_layers=[
-                {
-                    "below": "traces",
-                    "sourcetype": "raster",
-                    "source": [
-                        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                    ],
-                }
-            ],
-        )
-
-    mo.ui.plotly(fig_map_bbox)
-    return
-
-
-@app.cell(hide_code=True)
-def _():
-    service_url = "https://kart2.miljodirektoratet.no/arcgis/rest/services/hovedokosystem/hovedokosystem/MapServer"
-    return (service_url,)
-
-
-@app.cell(hide_code=True)
-def _(mo, requests, service_url, time, xmax, xmin, ymax, ymin):
-    # If envelope works better, here's an updated download function
-    def download_arcgis_utm33_envelope(
-        service_url, layer_id, xmin, ymin, xmax, ymax, max_records=2000
-    ):
-        """
-        Download GeoJSON data using envelope geometry
-        """
-        base_url = f"{service_url}/{layer_id}/query"
-
-        # Use envelope format for the geometry
-        base_params = {
-            "geometry": f"{xmin},{ymin},{xmax},{ymax}",
-            "geometryType": "esriGeometryEnvelope",
-            "spatialRel": "esriSpatialRelIntersects",
-            "inSR": "25833",
-            "outSR": "25833",
-            "where": "1=1",
-            "f": "json",
-        }
-
-        # Get total count first
-        count_params = {**base_params, "returnCountOnly": "true"}
-
-        try:
-            response = requests.get(base_url, params=count_params)
-            response.raise_for_status()
-            result = response.json()
-
-            if "error" in result:
-                mo.md(f"**Service error:** {result['error']}")
-                return {"type": "FeatureCollection", "features": []}
-
-            total_count = result.get("count", 0)
-            mo.md(f"**Found {total_count} features in the bounding box**")
-
-            if total_count == 0:
-                return {"type": "FeatureCollection", "features": []}
-
-        except requests.exceptions.RequestException as e:
-            mo.md(f"**Error querying service:** {str(e)}")
-            return {"type": "FeatureCollection", "features": []}
-
-        # Download features with pagination
-        all_features = []
-        offset = 0
-
-        while offset < total_count:
-            query_params = {
-                **base_params,
-                "outFields": "*",
-                "returnGeometry": "true",
-                "resultOffset": offset,
-                "resultRecordCount": min(max_records, total_count - offset),
-                "f": "geojson",
-            }
-
-            try:
-                response = requests.get(base_url, params=query_params)
-                response.raise_for_status()
-
-                geojson_data = response.json()
-                features = geojson_data.get("features", [])
-                all_features.extend(features)
-
-                downloaded = len(features)
-                offset += downloaded
-
-                mo.md(f"Progress: {offset}/{total_count} features downloaded")
-
-                if downloaded == 0:
-                    break
-
-                time.sleep(0.1)
-
-            except requests.exceptions.RequestException as e:
-                mo.md(f"**Error downloading batch at offset {offset}:** {str(e)}")
-                break
-
-        return {"type": "FeatureCollection", "features": all_features}
-
-
-    # Try the envelope-based download
-    ecosystem_geojson_envelope = download_arcgis_utm33_envelope(
-        service_url, 0, xmin, ymin, xmax, ymax
-    )
-
-    mo.md(f"""### Lastet ned data fra økologisk grunnkart
-    Downloaded **{len(ecosystem_geojson_envelope["features"])}** ecosystem polygons
-    """)
-    return (ecosystem_geojson_envelope,)
-
-
-@app.cell(hide_code=True)
-def _(ecosystem_geojson_envelope, json, tempfile):
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".geojson", delete=False
-    ) as f:
-        json.dump(ecosystem_geojson_envelope, f)
-        temp_geojson_path = f.name
-    return (temp_geojson_path,)
-
-
-@app.cell(hide_code=True)
-def _(os):
-    os.environ["OGR_GEOJSON_MAX_OBJ_SIZE"] = "0"
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo, temp_geojson_path):
-    _df = mo.sql(
-        f"""
-        INSTALL spatial;
-        LOAD spatial;
-
-        CREATE OR REPLACE TABLE ecosystems AS
-        SELECT * FROM ST_Read('{temp_geojson_path}');
-        """
-    )
-    return (ecosystems,)
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    mo.md(
-        r"""
-    ### Husk at du filtrerer på økosystemtyper ved å velge nummer 1-12 eller flere ved 1,2,5. 
-    - Endre denne    : "WHERE ecotype IN (4)"
-    """
-    )
-    return
-
-
-@app.cell(hide_code=True)
-def _(arter_df, ecosystems, mo):
-    system_arter_df = mo.sql(
-        f"""
-        WITH species_points AS (
-            -- Use the existing geometry column (already in UTM 33N)
-            SELECT 
-                *,
-                ST_GeomFromText(geometry) AS geom
-            FROM arter_df
-            WHERE geometry IS NOT NULL 
-              AND geometry != ''
-              AND geometry LIKE 'POINT%'
-        ),
-        filtered_ecosystems AS (
-            -- Pre-filter ecosystems to specific types
-            SELECT 
-                ecotype,
-                geom AS polygon_geom
-            FROM ecosystems
-            WHERE ecotype IN (4)
-        )
-        -- Optimized spatial join using SPATIAL_JOIN operator
-        SELECT 
-            sp.* EXCLUDE (geom, geometry),
-            fe.ecotype AS ecosystem_type
-        FROM species_points sp
-        INNER JOIN filtered_ecosystems fe
-            ON ST_Intersects(sp.geom, fe.polygon_geom)
-        """,
-        output=False
-    )
-    return (system_arter_df,)
-
-
-@app.cell
-def _(mo, system_arter_df):
-    okosystem_arter_df = mo.ui.table(system_arter_df)
-    okosystem_arter_df
-    return (okosystem_arter_df,)
 
 
 if __name__ == "__main__":
