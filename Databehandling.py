@@ -287,7 +287,7 @@ def _(pl):
     def legg_til_verdi_m1941(df):
         """
         Add 'Verdi M1941' column based on conservation status and criteria.
-    
+
         Mapping:
         - LC → noe verdi
         - NT → middels verdi
@@ -349,7 +349,7 @@ def _(endelig_datasett_for_nedlastning):
 
 @app.cell(hide_code=True)
 def _(mo):
-    valgt_fil = mo.ui.file_browser()
+    valgt_fil = mo.ui.file_browser(initial_path= r"C:\Users\havh\OneDrive - Multiconsult\Dokumenter\Oppdrag")
     valgt_fil
     return (valgt_fil,)
 
@@ -386,7 +386,7 @@ def _(
     orginal_df,
     process_and_enrich_data,
 ):
-    df_artsdatabanken, taxonomy_count = process_and_enrich_data(orginal_df) #Gir deg både oppdatert df og antall arter som er fikset
+    df_artsdatabanken = process_and_enrich_data(orginal_df) 
 
     df_alle_funksjoner= (
         df_artsdatabanken
@@ -407,7 +407,7 @@ def _(df_alle_funksjoner, pl):
         pl.col("Verdi M1941"),
         pl.col("preferredPopularName").alias("Navn"),
         pl.col("validScientificName").alias("Art"),
-        
+
         pl.col("individualCount")
             .fill_null("1")
             .str.split("/") #Noen har en 1/1 antall - anter ikke hva det betyr
@@ -415,7 +415,7 @@ def _(df_alle_funksjoner, pl):
             .cast(pl.Float64) #Noen har komma, så må ta til float først
             .cast(pl.Int64)
             .alias("Antall"),
-        
+
         pl.col("behavior").alias("Atferd"),
         pl.col("dateTimeCollected").dt.date().alias("Observert dato"),
         pl.col("coordinateUncertaintyInMeters").alias("Usikkerhet meter").cast(pl.Int64),
@@ -480,7 +480,6 @@ def _(arter_etter_1990, pl):
     )
 
     mangler_navn
-
     return (mangler_navn,)
 
 
@@ -512,7 +511,7 @@ def _(arter_etter_1990, navn_inputs, pl):
             "Art": list(navn_mapping.keys()),
             "Navn_ny": list(navn_mapping.values())
         })
-    
+
         # Join with the original dataframe and update the Navn column
         endelig_datasett_for_nedlastning = (
             arter_etter_1990
@@ -528,7 +527,6 @@ def _(arter_etter_1990, navn_inputs, pl):
     else:
         # If no names were entered, keep the original dataframe
         endelig_datasett_for_nedlastning = arter_etter_1990
-
     return (endelig_datasett_for_nedlastning,)
 
 
