@@ -180,7 +180,9 @@ def _():
 
 @app.cell(hide_code=True)
 def _(mo):
-    valgt_fil = mo.ui.file_browser(initial_path=r"C:\Users\havh\OneDrive - Multiconsult\Dokumenter\Oppdrag")
+    valgt_fil = mo.ui.file_browser(
+        initial_path=r"C:\Users\havh\OneDrive - Multiconsult\Dokumenter\Oppdrag"
+    )
     valgt_fil
     return (valgt_fil,)
 
@@ -202,7 +204,7 @@ def _(filepath, mo):
         TRY_CAST(Antall AS INTEGER) AS Antall
         FROM read_csv('{filepath}')
         """,
-        output=False
+        output=False,
     )
     return (arter_df,)
 
@@ -251,13 +253,23 @@ def _(artsdata_df, mo, pl):
     redlist_total = threatened_total + nt_count
 
     # Count specific management categories
-    ansvarsarter_count = _species_unique.filter(pl.col("Ansvarsarter") == True).height
-    hensynskrevende_count = _species_unique.filter(pl.col("Andre spesielt hensynskrevende arter") == True).height
-    prioriterte_count = _species_unique.filter(pl.col("Prioriterte arter") == True).height
-    okologiske_former_count = _species_unique.filter(pl.col("Spesielle økologiske former") == True).height
+    ansvarsarter_count = _species_unique.filter(
+        pl.col("Ansvarsarter") == True
+    ).height
+    hensynskrevende_count = _species_unique.filter(
+        pl.col("Andre spesielt hensynskrevende arter") == True
+    ).height
+    prioriterte_count = _species_unique.filter(
+        pl.col("Prioriterte arter") == True
+    ).height
+    okologiske_former_count = _species_unique.filter(
+        pl.col("Spesielle økologiske former") == True
+    ).height
 
     # Check for alien species (fremmed art)
-    fremmed_count = _species_unique.filter(pl.col("Kategori").is_in(["SE", "HI", "PH", "LO", "NK"])).height
+    fremmed_count = _species_unique.filter(
+        pl.col("Kategori").is_in(["SE", "HI", "PH", "LO", "NK"])
+    ).height
 
     summary_text = mo.md(f"""
     ## Datasettsammendrag
@@ -305,7 +317,11 @@ def _(artsdata_df, go, mo, pl):
         .group_by("Kategori")
         .agg([pl.len().alias("count")])
         # Filter to only include specified categories
-        .filter(pl.col("Kategori").is_in(["LC", "NT", "VU", "EN", "CR", "DD", "NE", "NA"]))
+        .filter(
+            pl.col("Kategori").is_in(
+                ["LC", "NT", "VU", "EN", "CR", "DD", "NE", "NA"]
+            )
+        )
     )
 
     # Norwegian category names
@@ -324,7 +340,9 @@ def _(artsdata_df, go, mo, pl):
     _kategori_counts = _kategori_counts.with_columns(
         pl.concat_str(
             [
-                pl.col("Kategori").map_elements(lambda x: _kategori_names.get(x, x), return_dtype=pl.Utf8),
+                pl.col("Kategori").map_elements(
+                    lambda x: _kategori_names.get(x, x), return_dtype=pl.Utf8
+                ),
                 pl.lit(" ["),
                 pl.col("Kategori"),
                 pl.lit("]; "),
@@ -340,7 +358,12 @@ def _(artsdata_df, go, mo, pl):
     _kategori_counts = (
         _kategori_counts.with_columns(
             pl.col("Kategori")
-            .map_elements(lambda x: _category_order.index(x) if x in _category_order else 999, return_dtype=pl.Int32)
+            .map_elements(
+                lambda x: _category_order.index(x)
+                if x in _category_order
+                else 999,
+                return_dtype=pl.Int32,
+            )
             .alias("sort_order")
         )
         .sort("sort_order")
@@ -395,7 +418,12 @@ def _(artsdata_df, go, mo, pl):
     )
 
     # Update layout for better appearance
-    fig_pie.update_layout(title="Antall arter fordelt på rødlistekategorier", height=600, width=800, showlegend=False)
+    fig_pie.update_layout(
+        title="Antall arter fordelt på rødlistekategorier",
+        height=600,
+        width=800,
+        showlegend=False,
+    )
 
     mo.ui.plotly(fig_pie)
     return
@@ -408,7 +436,7 @@ def _(artsdata_df, pl):
     # Get selected data from the table
     _obs_data = artsdata_df.value
 
-    # Calculate per-species statistics
+    # Calculate per-species statistics - INCLUDING reproductive activities in the initial aggregation
     _species_stats = (
         _obs_data.group_by("Navn")
         .agg(
@@ -419,25 +447,51 @@ def _(artsdata_df, pl):
                 pl.col("Orden").first().alias("Orden"),
                 pl.col("Kategori").first().alias("Kategori"),
                 pl.col("Ansvarsarter").first().alias("Ansvarsarter"),
-                pl.col("Andre spesielt hensynskrevende arter").first().alias("Andre spesielt hensynskrevende arter"),
+                pl.col("Andre spesielt hensynskrevende arter")
+                .first()
+                .alias("Andre spesielt hensynskrevende arter"),
                 pl.col("Prioriterte arter").first().alias("Prioriterte arter"),
                 pl.col("Observert dato").dt.year().min().alias("År fra"),
                 pl.col("Observert dato").dt.year().max().alias("År til"),
                 pl.col("Antall").mean().alias("Gj.snitt individer"),
-                pl.col("Observert dato").dt.month().unique().sort().alias("Måneder_num"),
+                pl.col("Observert dato")
+                .dt.month()
+                .unique()
+                .sort()
+                .alias("Måneder_num"),
+                # Add reproductive activity counts directly here
+                (pl.col("Atferd") == "reproductive").sum().alias("Reproduksjon"),
+                (pl.col("Atferd") == "possiblereproductive").sum().alias("Mulig reproduksjon"),
             ]
         )
         .with_columns(
             [
                 pl.when(pl.col("År fra") == pl.col("År til"))
                 .then(pl.col("År fra").cast(pl.Utf8))
-                .otherwise(pl.concat_str([pl.col("År fra"), pl.lit("-"), pl.col("År til")]))
+                .otherwise(
+                    pl.concat_str(
+                        [pl.col("År fra"), pl.lit("-"), pl.col("År til")]
+                    )
+                )
                 .alias("År-periode"),
                 pl.col("Måneder_num")
                 .map_elements(
                     lambda months: ", ".join(
                         [
-                            ["Jan", "Feb", "Mar", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Des"][m - 1]
+                            [
+                                "Jan",
+                                "Feb",
+                                "Mar",
+                                "Apr",
+                                "Mai",
+                                "Jun",
+                                "Jul",
+                                "Aug",
+                                "Sep",
+                                "Okt",
+                                "Nov",
+                                "Des",
+                            ][m - 1]
                             for m in months
                             if m is not None
                         ]
@@ -448,11 +502,15 @@ def _(artsdata_df, pl):
                 # Create Øvrige kategorier column
                 pl.concat_list(
                     [
-                        pl.when(pl.col("Ansvarsarter")).then(pl.lit("Ansvarsart")).otherwise(pl.lit(None)),
+                        pl.when(pl.col("Ansvarsarter"))
+                        .then(pl.lit("Ansvarsart"))
+                        .otherwise(pl.lit(None)),
                         pl.when(pl.col("Andre spesielt hensynskrevende arter"))
                         .then(pl.lit("Hensynskrevende"))
                         .otherwise(pl.lit(None)),
-                        pl.when(pl.col("Prioriterte arter")).then(pl.lit("Prioritert")).otherwise(pl.lit(None)),
+                        pl.when(pl.col("Prioriterte arter"))
+                        .then(pl.lit("Prioritert"))
+                        .otherwise(pl.lit(None)),
                     ]
                 )
                 .list.drop_nulls()
@@ -462,29 +520,6 @@ def _(artsdata_df, pl):
         )
     )
 
-    # Calculate activity counts per species - only for reproductive behaviors
-    _activity_counts = (
-        _obs_data.filter(pl.col("Atferd").is_in(["Reproduksjon", "Mulig reproduksjon"]))
-        .group_by(["Navn", "Atferd"])
-        .agg(pl.len().alias("count"))
-        .pivot(values="count", index="Navn", on="Atferd", aggregate_function="sum")
-        .fill_null(0)
-    )
-
-    # Join activity counts with species stats
-    _species_stats = _species_stats.join(_activity_counts, on="Navn", how="left")
-
-    # Fill nulls with 0 for species without any reproductive activities
-    if "Reproduksjon" in _species_stats.columns:
-        _species_stats = _species_stats.with_columns(pl.col("Reproduksjon").fill_null(0))
-    else:
-        _species_stats = _species_stats.with_columns(pl.lit(0).alias("Reproduksjon"))
-
-    if "Mulig reproduksjon" in _species_stats.columns:
-        _species_stats = _species_stats.with_columns(pl.col("Mulig reproduksjon").fill_null(0))
-    else:
-        _species_stats = _species_stats.with_columns(pl.lit(0).alias("Mulig reproduksjon"))
-
     # Define custom sort order for Kategori
     _kategori_order = {"CR": 1, "EN": 2, "VU": 3, "NT": 4, "LC": 5}
 
@@ -492,7 +527,9 @@ def _(artsdata_df, pl):
     _species_stats = (
         _species_stats.with_columns(
             pl.col("Kategori")
-            .map_elements(lambda x: _kategori_order.get(x, 999), return_dtype=pl.Int32)
+            .map_elements(
+                lambda x: _kategori_order.get(x, 999), return_dtype=pl.Int32
+            )
             .alias("kategori_sort")
         )
         .sort(["kategori_sort", "Observasjoner"], descending=[False, True])
@@ -525,11 +562,24 @@ def _(artsdata_df, pl):
             subtitle=f"Alle {_species_stats.height} arter sortert etter rødlistekategori",
         )
         .fmt_number(
-            columns=["Observasjoner", "Individer", "Reproduksjon", "Mulig reproduksjon"], decimals=0, use_seps=True
+            columns=[
+                "Observasjoner",
+                "Individer",
+                "Reproduksjon",
+                "Mulig reproduksjon",
+            ],
+            decimals=0,
+            use_seps=True,
         )
         .fmt_number(columns=["Gj.snitt individer"], decimals=1)
-        .tab_spanner(label="Aktiviteter", columns=["Reproduksjon", "Mulig reproduksjon"])
-        .tab_options(table_font_size="12px", heading_title_font_size="16px", column_labels_font_size="13px")
+        .tab_spanner(
+            label="Aktiviteter", columns=["Reproduksjon", "Mulig reproduksjon"]
+        )
+        .tab_options(
+            table_font_size="12px",
+            heading_title_font_size="16px",
+            column_labels_font_size="13px",
+        )
     )
 
     species_table
@@ -547,7 +597,10 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(clipboard_button, mo, species_stats_formatted):
     # Copy data to clipboard when button is clicked
-    mo.stop(not clipboard_button.value, mo.md(" Click the button above to copy data to clipboard"))
+    mo.stop(
+        not clipboard_button.value,
+        mo.md(" Click the button above to copy data to clipboard"),
+    )
 
     try:
         # Convert the polars dataframe to pandas and copy to clipboard
@@ -578,7 +631,10 @@ def _(artsdata_df, mo, pl, px):
 
     # Add Orders
     _orden_stats = _selected_data.group_by("Orden").agg(
-        [pl.len().alias("observations"), pl.col("Antall").sum().alias("individuals")]
+        [
+            pl.len().alias("observations"),
+            pl.col("Antall").sum().alias("individuals"),
+        ]
     )
 
     for row in _orden_stats.iter_rows(named=True):
@@ -594,7 +650,10 @@ def _(artsdata_df, mo, pl, px):
 
     # Add Families
     _familie_stats = _selected_data.group_by(["Orden", "Familie"]).agg(
-        [pl.len().alias("observations"), pl.col("Antall").sum().alias("individuals")]
+        [
+            pl.len().alias("observations"),
+            pl.col("Antall").sum().alias("individuals"),
+        ]
     )
 
     for row in _familie_stats.iter_rows(named=True):
@@ -610,7 +669,10 @@ def _(artsdata_df, mo, pl, px):
 
     # Add Species
     _species_stats = _selected_data.group_by(["Familie", "Navn"]).agg(
-        [pl.len().alias("observations"), pl.col("Antall").sum().alias("individuals")]
+        [
+            pl.len().alias("observations"),
+            pl.col("Antall").sum().alias("individuals"),
+        ]
     )
 
     for row in _species_stats.iter_rows(named=True):
@@ -633,7 +695,11 @@ def _(artsdata_df, mo, pl, px):
         parents="parents",
         values="values",
         color="level",
-        color_discrete_map={"Orden": "#1f77b4", "Familie": "#ff7f0e", "Art": "#2ca02c"},
+        color_discrete_map={
+            "Orden": "#1f77b4",
+            "Familie": "#ff7f0e",
+            "Art": "#2ca02c",
+        },
         hover_data={"observations": True, "values": True},
         title="Taksonomisk hierarki - Sunburst",
     )
@@ -675,7 +741,9 @@ def _(alt, artsdata_tid, mo, pl):
         .agg(
             [
                 pl.len().alias("observation_count"),  # Using pl.len() as requested
-                pl.col("Antall").sum().alias("individual_count"),  # Sum of individuals
+                pl.col("Antall")
+                .sum()
+                .alias("individual_count"),  # Sum of individuals
             ]
         )
         .sort("year")
@@ -694,7 +762,9 @@ def _(alt, artsdata_tid, mo, pl):
                 alt.Tooltip("observation_count:Q", title="Antall observasjoner"),
             ],
         )
-        .properties(width=900, height=400, title="Antall individer observert per år")
+        .properties(
+            width=900, height=400, title="Antall individer observert per år"
+        )
         .interactive()
     )
 
@@ -729,7 +799,10 @@ def _(alt, artsdata_tid, mo, pl, toggle, window_size):
             [
                 pl.col("Observert dato").dt.date().alias("date"),
                 pl.col("Observert dato").dt.year().alias("year"),
-                pl.col("Antall").cast(pl.Int64, strict=False).fill_null(1).alias("ind_count"),
+                pl.col("Antall")
+                .cast(pl.Int64, strict=False)
+                .fill_null(1)
+                .alias("ind_count"),
             ]
         )
         .group_by("date")
@@ -741,7 +814,13 @@ def _(alt, artsdata_tid, mo, pl, toggle, window_size):
             ]
         )
         # Create a synthetic date using year 2024 for all data to show pattern
-        .with_columns([pl.date(2024, pl.col("date").dt.month(), pl.col("date").dt.day()).alias("common_date")])
+        .with_columns(
+            [
+                pl.date(
+                    2024, pl.col("date").dt.month(), pl.col("date").dt.day()
+                ).alias("common_date")
+            ]
+        )
         .group_by("common_date")
         .agg(
             [
@@ -759,11 +838,19 @@ def _(alt, artsdata_tid, mo, pl, toggle, window_size):
         .with_columns(
             [
                 # Rolling averages
-                pl.col("avg_daily_obs").rolling_mean(window_size.value, center=True).alias("rolling_avg_obs"),
-                pl.col("avg_daily_ind").rolling_mean(window_size.value, center=True).alias("rolling_avg_ind"),
+                pl.col("avg_daily_obs")
+                .rolling_mean(window_size.value, center=True)
+                .alias("rolling_avg_obs"),
+                pl.col("avg_daily_ind")
+                .rolling_mean(window_size.value, center=True)
+                .alias("rolling_avg_ind"),
                 # Standard errors
-                (pl.col("std_daily_obs") / pl.col("n_years").sqrt()).alias("se_obs"),
-                (pl.col("std_daily_ind") / pl.col("n_years").sqrt()).alias("se_ind"),
+                (pl.col("std_daily_obs") / pl.col("n_years").sqrt()).alias(
+                    "se_obs"
+                ),
+                (pl.col("std_daily_ind") / pl.col("n_years").sqrt()).alias(
+                    "se_ind"
+                ),
             ]
         )
         .with_columns(
@@ -783,8 +870,12 @@ def _(alt, artsdata_tid, mo, pl, toggle, window_size):
             alt.Chart(daily_stats)
             .mark_area(opacity=0.3, color="lightblue")
             .encode(
-                x=alt.X("common_date:T", title="Dato", axis=alt.Axis(format="%d %b")),
-                y=alt.Y("lower_obs:Q", title="Rullerende gjennomsnitt (observasjoner)"),
+                x=alt.X(
+                    "common_date:T", title="Dato", axis=alt.Axis(format="%d %b")
+                ),
+                y=alt.Y(
+                    "lower_obs:Q", title="Rullerende gjennomsnitt (observasjoner)"
+                ),
                 y2="upper_obs:Q",
             )
             + alt.Chart(daily_stats)
@@ -813,8 +904,12 @@ def _(alt, artsdata_tid, mo, pl, toggle, window_size):
             alt.Chart(daily_stats)
             .mark_area(opacity=0.3, color="peachpuff")
             .encode(
-                x=alt.X("common_date:T", title="Dato", axis=alt.Axis(format="%d %b")),
-                y=alt.Y("lower_ind:Q", title="Rullerende gjennomsnitt (individer)"),
+                x=alt.X(
+                    "common_date:T", title="Dato", axis=alt.Axis(format="%d %b")
+                ),
+                y=alt.Y(
+                    "lower_ind:Q", title="Rullerende gjennomsnitt (individer)"
+                ),
                 y2="upper_ind:Q",
             )
             + alt.Chart(daily_stats)
@@ -870,8 +965,11 @@ def _(mo):
 def _(artsdata_df, dataframe_selector, mo, okosystem_arter_df):
     # Add this at the beginning of the cell that uses okosystem_arter_df
     mo.stop(
-        "okosystem_arter_df" not in globals() and dataframe_selector.value != "Alle arter",
-        mo.md("⚠️ **Run the ecosystem overlay analysis first to use filtered data**"),
+        "okosystem_arter_df" not in globals()
+        and dataframe_selector.value != "Alle arter",
+        mo.md(
+            "⚠️ **Run the ecosystem overlay analysis first to use filtered data**"
+        ),
     )
 
     # Your existing logic continues here
@@ -922,13 +1020,17 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(artsdata_fg, metric_dropdown, pl):
     if metric_dropdown.value == "Antall individer":
-        aggregated_data = artsdata_fg.group_by("Navn").agg(pl.col("Antall").sum().alias("Total"))
+        aggregated_data = artsdata_fg.group_by("Navn").agg(
+            pl.col("Antall").sum().alias("Total")
+        )
         y_label = "Antall individer"
     elif metric_dropdown.value == "Antall observasjoner":
         aggregated_data = artsdata_fg.group_by("Navn").agg(pl.len().alias("Total"))
         y_label = "Antall observasjoner"
     else:
-        aggregated_data = artsdata_fg.group_by("Navn").agg(pl.col("Antall").mean().alias("Total"))
+        aggregated_data = artsdata_fg.group_by("Navn").agg(
+            pl.col("Antall").mean().alias("Total")
+        )
         y_label = "Gjennomsnitt individer per observasjon"
 
     # Join with species information - INCLUDING THE SPECIAL CATEGORIES
@@ -976,12 +1078,16 @@ def _(data_with_info, grouping_dropdown, pl):
         # Add sort priority column
         data_with_priority = data_with_info.with_columns(
             pl.col("Kategori")
-            .map_elements(lambda x: kategori_priority.get(x, 999), return_dtype=pl.Int32)
+            .map_elements(
+                lambda x: kategori_priority.get(x, 999), return_dtype=pl.Int32
+            )
             .alias("kategori_priority")
         )
 
         # Sort by category priority first, then by Total within each group
-        sorted_data = data_with_priority.sort(["kategori_priority", "Total"], descending=[False, True])
+        sorted_data = data_with_priority.sort(
+            ["kategori_priority", "Total"], descending=[False, True]
+        )
 
         # Remove the temporary priority column
         sorted_data = sorted_data.drop("kategori_priority")
@@ -991,33 +1097,43 @@ def _(data_with_info, grouping_dropdown, pl):
         color_field = "Familie"
         color_title = "Familie"
         # Sort alphabetically by Familie, then by Total within each group
-        sorted_data = data_with_info.sort([sort_field, "Total"], descending=[False, True])
+        sorted_data = data_with_info.sort(
+            [sort_field, "Total"], descending=[False, True]
+        )
 
     else:
         sort_field = "Orden"
         color_field = "Orden"
         color_title = "Orden"
         # Sort alphabetically by Orden, then by Total within each group
-        sorted_data = data_with_info.sort([sort_field, "Total"], descending=[False, True])
+        sorted_data = data_with_info.sort(
+            [sort_field, "Total"], descending=[False, True]
+        )
 
     # Calculate group totals for annotations
     group_totals = sorted_data.group_by(sort_field).agg(
         [
             pl.col("Total").sum().alias("GroupTotal"),
             pl.col("Navn").count().alias("SpeciesCount"),
-            pl.col("Navn").first().alias("FirstSpecies"),  # To position the annotation
+            pl.col("Navn")
+            .first()
+            .alias("FirstSpecies"),  # To position the annotation
             pl.col("Navn").last().alias("LastSpecies"),
         ]
     )
 
     # Add x-position for each species (for separator lines)
-    sorted_data_with_pos = sorted_data.with_columns(pl.arange(0, sorted_data.height).alias("x_position"))
+    sorted_data_with_pos = sorted_data.with_columns(
+        pl.arange(0, sorted_data.height).alias("x_position")
+    )
 
     # Find group boundaries for separator lines
     group_boundaries = (
         sorted_data_with_pos.group_by(sort_field)
         .agg(pl.col("x_position").max().alias("last_position"))
-        .filter(pl.col("last_position") < sorted_data_with_pos.height - 1)  # Exclude last group
+        .filter(
+            pl.col("last_position") < sorted_data_with_pos.height - 1
+        )  # Exclude last group
         .with_columns((pl.col("last_position") + 0.5).alias("separator_position"))
     )
 
@@ -1027,7 +1143,11 @@ def _(data_with_info, grouping_dropdown, pl):
     # Get unique values for consistent color ordering
     if grouping_dropdown.value == "Art (kategori)":
         # Use the explicit order for categories
-        unique_groups = [cat for cat in kategori_order if cat in sorted_data[sort_field].unique()]
+        unique_groups = [
+            cat
+            for cat in kategori_order
+            if cat in sorted_data[sort_field].unique()
+        ]
     else:
         # Use alphabetical order for other groupings
         unique_groups = sorted_data[sort_field].unique().sort().to_list()
@@ -1088,7 +1208,9 @@ def _(
         legend_sort = color_domain  # Explicit sort order for legend
     else:
         # Use default color scheme for Familie and Orden
-        color_scale = alt.Scale(scheme="category20" if len(unique_groups) > 10 else "category10")
+        color_scale = alt.Scale(
+            scheme="category20" if len(unique_groups) > 10 else "category10"
+        )
         legend_sort = unique_groups  # Alphabetical order from Cell 3
 
     # Create color encoding with explicit sort order
@@ -1153,7 +1275,9 @@ def _(
                 alt.Tooltip("Familie", title="Familie"),
                 alt.Tooltip("Orden", title="Orden"),
                 alt.Tooltip("Ansvarsarter", title="Ansvarsart"),
-                alt.Tooltip("Andre spesielt hensynskrevende arter", title="Hensynskrevende"),
+                alt.Tooltip(
+                    "Andre spesielt hensynskrevende arter", title="Hensynskrevende"
+                ),
                 alt.Tooltip("Prioriterte arter", title="Prioritert"),
             ],
         )
@@ -1209,7 +1333,9 @@ def _(
                     marker_rank="rank()",
                     groupby=["Navn"],
                 )
-                .transform_calculate(y_pos=f"datum.Total + {marker_offset} * datum.marker_rank")
+                .transform_calculate(
+                    y_pos=f"datum.Total + {marker_offset} * datum.marker_rank"
+                )
             )
 
             # Layer the charts with shared Y-scale
