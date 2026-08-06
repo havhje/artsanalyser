@@ -391,6 +391,16 @@ def _(
                 style=gt.style.text(align="center"),
                 locations=gt.loc.column_labels(),
             )
+            .cols_align(
+                align="center",
+                columns=[
+                    "Observasjoner",
+                    "Individer",
+                    "Gj.snitt individer",
+                    "Reproduksjon",
+                    "Mulig reproduksjon",
+                ],
+            )
             .fmt_integer(
                 columns=[
                     "Observasjoner",
