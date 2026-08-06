@@ -22,12 +22,21 @@ with app.setup(hide_code=True):
     import textwrap
 
 
-@app.cell(column=0, hide_code=True)
+@app.cell(hide_code=True)
+def _():
+    valgt_fil = mo.ui.file_browser(
+        filetypes=[".parquet"],
+        multiple=False,
+        label="Velg ferdig behandlet Parquet-fil",
+    )
+    valgt_fil
+    return (valgt_fil,)
+
+
+@app.cell(hide_code=True)
 def _():
     mo.md(r"""
-    # Artsstatistikk
-
-    Tabellen oppsummerer observasjonene som er valgt i hovedtabellen, én rad per takson.
+    ### Funksjons og tester GT-artstabell
     """)
     return
 
@@ -36,25 +45,6 @@ def _():
 def _(arter_df, lag_artsstatistikk):
     artsstatistikk_df = lag_artsstatistikk(arter_df)
     return (artsstatistikk_df,)
-
-
-@app.cell(hide_code=True)
-def _(artsstatistikk_df, lag_artsstatistikk_tabell):
-    artsstatistikk_tabell = lag_artsstatistikk_tabell(artsstatistikk_df)
-    artsstatistikk_tabell
-    return
-
-
-@app.cell(hide_code=True)
-def _(artsstatistikk_df, lag_artsstatistikk_csv):
-    artsstatistikk_nedlasting = mo.download(
-        data=lambda: lag_artsstatistikk_csv(artsstatistikk_df),
-        filename="artsstatistikk.csv",
-        mimetype="text/csv",
-        label="Last ned artsstatistikk som CSV",
-    )
-    artsstatistikk_nedlasting
-    return
 
 
 @app.cell(hide_code=True)
@@ -397,6 +387,10 @@ def _(
                     "År-periode": "År",
                 }
             )
+            .tab_style(
+                style=gt.style.text(align="center"),
+                locations=gt.loc.column_labels(),
+            )
             .fmt_integer(
                 columns=[
                     "Observasjoner",
@@ -496,11 +490,11 @@ def _(
                 }
             )
             .tab_options(
-                container_width="100%",
-                container_height="760px",
+                container_width="1800px",
+                container_height="1200px",
                 container_overflow_x="auto",
                 container_overflow_y="auto",
-                table_width="1650px",
+                table_width="1800px",
                 table_layout="fixed",
                 table_font_size="12px",
                 heading_title_font_size="18px",
@@ -895,17 +889,6 @@ def _(
     return
 
 
-@app.cell
-def _():
-    valgt_fil = mo.ui.file_browser(
-        filetypes=[".parquet"],
-        multiple=False,
-        label="Velg ferdig behandlet Parquet-fil",
-    )
-    valgt_fil
-    return (valgt_fil,)
-
-
 @app.cell(hide_code=True)
 def _(valgt_fil):
     mo.stop(
@@ -925,19 +908,43 @@ def _(artsdata_df):
     return (arter_df,)
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _():
-    mo.md(r"""
-    ### Dataanalyse
-    "Info om notatboken her"
-    """)
     return
 
 
-@app.cell
+@app.cell(column=1, hide_code=True)
 def _(artsdata_df):
     artsdata_df
     return
+
+
+@app.cell(hide_code=True)
+def _(artsstatistikk_df, lag_artsstatistikk_tabell):
+    artsstatistikk_tabell = lag_artsstatistikk_tabell(artsstatistikk_df)
+    artsstatistikk_tabell
+    return
+
+
+@app.cell(hide_code=True)
+def _(arter_df, plotly_map, plotly_map_fig):
+    def get_selected_row_nrs(points, figure):
+        """For every selected map point, use its curveNumber to find the right Plotly trace, use its pointIndex to find the right point inside that trace, look in that point’s hidden customdata, take the first value, convert it to an integer, and return all those integers as a list."""
+        return [int(figure.data[point["curveNumber"]].customdata[point["pointIndex"]][0]) for point in points]
+
+    selected_row_nrs = get_selected_row_nrs(plotly_map.points, plotly_map_fig)
+
+    selected_arter_df = (
+        arter_df.with_row_index("__row_nr").filter(pl.col("__row_nr").is_in(selected_row_nrs)).drop("__row_nr")
+    )
+
+    mo.vstack(
+        [
+            mo.md(f"**Valgte observasjoner fra heatmap:** {selected_arter_df.height}"),
+            mo.ui.table(selected_arter_df, page_size=10),
+        ]
+    )
+    return (selected_arter_df,)
 
 
 @app.cell(column=2, hide_code=True)
@@ -956,7 +963,7 @@ def _():
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     farge_kart_arter = mo.ui.dropdown(
         options=["Navn", "Verdi M1941", "Atferd"],
@@ -975,13 +982,7 @@ def _():
     return (farge_kart_arter,)
 
 
-@app.cell
-def _(farge_kart_arter):
-    farge_kart_arter
-    return
-
-
-@app.cell
+@app.cell(hide_code=True)
 def plotlymap(arter_df, farge_kart_arter):
     verdi_m1941_color_map = {
         "Svært stor verdi": "#AF0F0F",
@@ -1054,9 +1055,9 @@ def plotlymap(arter_df, farge_kart_arter):
         **plotly_color_kwargs,
     )
     plotly_map_fig.update_traces(
-        marker={"size": 8, "opacity": 0.75},
+        marker={"size": 8, "opacity": 0.9},
         selected={"marker": {"size": 11, "opacity": 1.0}},
-        unselected={"marker": {"opacity": 0.25}},
+        unselected={"marker": {"opacity": 0.35}},
     )
     plotly_map_fig.update_layout(
         dragmode="lasso",
@@ -1099,25 +1100,43 @@ def test(selected_arter_df):
     return (arter_map_df,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
-    max_px_value = mo.ui.slider(start=1, stop=10, step=2, value=10, show_value=True, label="Maks spredning")
-    threshold_value = mo.ui.slider(start=0.1, stop=1, value=0.95, show_value=True, label="Terskel")
+    max_px_value = mo.ui.slider(
+        start=1,
+        stop=10,
+        step=1,
+        value=10,
+        show_value=True,
+        label="Maks spredning",
+    )
+    threshold_value = mo.ui.slider(
+        start=0.0,
+        stop=1.0,
+        step=0.05,
+        value=0.95,
+        show_value=True,
+        label="Terskel",
+    )
     return max_px_value, threshold_value
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(max_px_value, threshold_value):
-    max_px_value
-    threshold_value
-
-    stack = mo.vstack([max_px_value, threshold_value])
+    stack = mo.vstack(
+        [
+            max_px_value,
+            mo.md("*Største antall piksler punktene kan utvides på hver side.*"),
+            threshold_value,
+            mo.md("*Tettheten som må nås før spredningen stopper. En høyere terskel gir mer spredning.*"),
+        ]
+    )
 
     stack
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def heatmap(arter_map_df, max_px_value, threshold_value):
     species_density = arter_map_df.hvplot.points(
         x="x_webmercator",
@@ -1140,25 +1159,8 @@ def heatmap(arter_map_df, max_px_value, threshold_value):
 
 
 @app.cell
-def _(arter_df, plotly_map, plotly_map_fig):
-    def get_selected_row_nrs(points, figure):
-        """For every selected map point, use its curveNumber to find the right Plotly trace, use its pointIndex to find the right point inside that trace, look in that point’s hidden customdata, take the first value, convert it to an integer, and return all those integers as a list."""
-        return [int(figure.data[point["curveNumber"]].customdata[point["pointIndex"]][0]) for point in points]
-
-
-    selected_row_nrs = get_selected_row_nrs(plotly_map.points, plotly_map_fig)
-
-    selected_arter_df = (
-        arter_df.with_row_index("__row_nr").filter(pl.col("__row_nr").is_in(selected_row_nrs)).drop("__row_nr")
-    )
-
-    mo.vstack(
-        [
-            mo.md(f"**Valgte observasjoner:** {selected_arter_df.height}"),
-            mo.ui.table(selected_arter_df, page_size=10),
-        ]
-    )
-    return (selected_arter_df,)
+def _():
+    return
 
 
 if __name__ == "__main__":

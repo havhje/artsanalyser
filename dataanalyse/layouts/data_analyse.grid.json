@@ -1,77 +1,11 @@
 {
   "type": "grid",
   "data": {
-    "columns": 30,
+    "columns": 33,
     "rowHeight": 40,
     "maxWidth": 2400,
     "bordered": true,
     "cells": [
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
-      {
-        "position": null
-      },
       {
         "position": null
       },
@@ -92,12 +26,67 @@
         "position": null
       },
       {
-        "position": [
-          15,
-          0,
-          15,
-          6
-        ]
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
       },
       {
         "position": [
@@ -108,21 +97,29 @@
         ]
       },
       {
-        "position": null
-      },
-      {
-        "position": null
+        "position": [
+          0,
+          51,
+          25,
+          23
+        ]
       },
       {
         "position": null
       },
       {
         "position": [
-          0,
           26,
-          4,
-          1
+          78,
+          6,
+          2
         ]
+      },
+      {
+        "position": null
+      },
+      {
+        "position": null
       },
       {
         "position": [
@@ -142,23 +139,23 @@
         "position": null
       },
       {
-        "position": null
+        "position": [
+          22,
+          27,
+          5,
+          3
+        ]
       },
       {
         "position": [
-          16,
-          27,
+          17,
+          31,
           14,
-          19
+          17
         ]
       },
       {
-        "position": [
-          0,
-          46,
-          30,
-          20
-        ]
+        "position": null
       }
     ]
   }
