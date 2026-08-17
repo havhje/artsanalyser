@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.23.8"
+__generated_with = "0.23.16"
 app = marimo.App(width="columns")
 
 with app.setup(hide_code=True):
@@ -2406,6 +2406,216 @@ def RYDD_MTM_007(lag_rydd_navn_og_datatyper_input):
 
 
 @app.cell(hide_code=True)
+def md_legg_til_maanedsnavn():
+    mo.md(r"""
+    ### Legger til månedsnavn
+
+    Sluttabellen får kolonnen `Månedsnavn` rett etter `Observert dato`. Navnet
+    utledes deterministisk fra observasjonsdatoen med norske, fullstendige
+    månedsnavn.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def definer_legg_til_maanedsnavn():
+    MÅNEDSNAVN_ETTER_NUMMER = {
+        1: "januar",
+        2: "februar",
+        3: "mars",
+        4: "april",
+        5: "mai",
+        6: "juni",
+        7: "juli",
+        8: "august",
+        9: "september",
+        10: "oktober",
+        11: "november",
+        12: "desember",
+    }
+
+    def legg_til_månedsnavn(df: pl.DataFrame) -> pl.DataFrame:
+        """Legg til norsk månedsnavn basert på observasjonsdatoen.
+
+        Args:
+            df: Ferdig ryddet DataFrame med `Observert dato` som Date eller
+                Datetime.
+
+        Returns:
+            DataFrame med `Månedsnavn` rett etter `Observert dato`. Rader og
+            øvrige kolonner beholdes uendret.
+
+        Raises:
+            TypeError: Når input ikke er en Polars DataFrame eller datokolonnen
+                ikke har en temporal datatype.
+            ValueError: Når `Observert dato` mangler.
+
+        Notes:
+            Null dato gir null månedsnavn. En eksisterende `Månedsnavn`-kolonne
+            beregnes på nytt og flyttes til riktig plassering.
+        """
+        if not isinstance(df, pl.DataFrame):
+            raise TypeError("legg_til_månedsnavn krever en Polars DataFrame")
+
+        datokolonne = "Observert dato"
+        månedsnavnkolonne = "Månedsnavn"
+        if datokolonne not in df.columns:
+            raise ValueError("Mangler obligatorisk kolonne: `Observert dato`")
+        if df.schema[datokolonne].base_type() not in {pl.Date, pl.Datetime}:
+            raise TypeError("Kolonnen `Observert dato` må ha typen Date eller Datetime")
+
+        kolonnerekkefølge = [kolonne for kolonne in df.columns if kolonne != månedsnavnkolonne]
+        kolonnerekkefølge.insert(kolonnerekkefølge.index(datokolonne) + 1, månedsnavnkolonne)
+
+        return df.with_columns(
+            pl.col(datokolonne)
+            .dt.month()
+            .replace_strict(MÅNEDSNAVN_ETTER_NUMMER, default=None)
+            .alias(månedsnavnkolonne)
+        ).select(kolonnerekkefølge)
+
+    return (legg_til_månedsnavn,)
+
+
+@app.cell(hide_code=True)
+def md_testmatrise_legg_til_maanedsnavn():
+    mo.md(r"""
+    ### Testmatrise: `legg_til_månedsnavn`
+
+    **Tiltenkt oppførsel:** Funksjonen skal utlede norske månedsnavn fra
+    `Observert dato`, plassere `Månedsnavn` umiddelbart etter datokolonnen og
+    ellers bevare datastrukturen.
+
+    | ID | Scenario | Forventet output/invariant | Testcelle |
+    |---|---|---|---|
+    | MAANED-MTM-001 | Alle kalendermåneder | Fullstendige norske navn fra januar til desember og riktig kolonneplassering | `MAANED_MTM_001` |
+    | MAANED-MTM-002 | Datetime, null og eksisterende månedsnavn | Datetime støttes, null bevares, og eksisterende verdi beregnes på nytt uten å endre øvrige data | `MAANED_MTM_002` |
+    | MAANED-MTM-003 | Tom input med riktig schema | Tom output med `Månedsnavn` som tekstkolonne på riktig plass | `MAANED_MTM_003` |
+    | MAANED-MTM-004 | Manglende eller ugyldig datokolonne | Tydelig `ValueError` eller `TypeError` som nevner `Observert dato` | `MAANED_MTM_004` |
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def maanedsnavn_testhjelpere(rydd_navn_og_datatyper_forventede_kolonner):
+    def legg_til_månedsnavn_forventede_kolonner() -> list[str]:
+        """Returner sluttkolonnene etter at månedsnavn er lagt til."""
+        kolonner = rydd_navn_og_datatyper_forventede_kolonner()
+        kolonner.insert(kolonner.index("Observert dato") + 1, "Månedsnavn")
+        return kolonner
+
+    return (legg_til_månedsnavn_forventede_kolonner,)
+
+
+@app.cell(hide_code=True)
+def MAANED_MTM_001(legg_til_månedsnavn):
+    def test_legg_til_månedsnavn_maaned_mtm_001():
+        """MAANED-MTM-001: alle måneder får norske navn i riktig kolonneplassering."""
+        test_df = pl.DataFrame(
+            {
+                "Artens ID": list(range(1, 13)),
+                "Observert dato": [dt_date(2024, måned, 1) for måned in range(1, 13)],
+                "Art": [f"Testart {måned}" for måned in range(1, 13)],
+            }
+        )
+
+        result = legg_til_månedsnavn(test_df)
+
+        assert result.columns == ["Artens ID", "Observert dato", "Månedsnavn", "Art"], (
+            "MAANED-MTM-001 Månedsnavn skal stå rett etter Observert dato"
+        )
+        assert result.get_column("Månedsnavn").to_list() == [
+            "januar",
+            "februar",
+            "mars",
+            "april",
+            "mai",
+            "juni",
+            "juli",
+            "august",
+            "september",
+            "oktober",
+            "november",
+            "desember",
+        ], "MAANED-MTM-001 alle kalendermåneder skal få korrekt norsk navn"
+
+    test_legg_til_månedsnavn_maaned_mtm_001()
+    return
+
+
+@app.cell(hide_code=True)
+def MAANED_MTM_002(legg_til_månedsnavn):
+    def test_legg_til_månedsnavn_maaned_mtm_002():
+        """MAANED-MTM-002: Datetime/null støttes og eksisterende månedsnavn overskrives."""
+        from polars.testing import assert_frame_equal
+
+        test_df = pl.DataFrame(
+            {
+                "Art": ["Larus canus", "Corvus corax"],
+                "Månedsnavn": ["feil", "feil"],
+                "Observert dato": [datetime(2024, 5, 17, 12, 30), None],
+                "Antall": [2, 1],
+            }
+        )
+
+        result = legg_til_månedsnavn(test_df)
+
+        assert result.columns == ["Art", "Observert dato", "Månedsnavn", "Antall"], (
+            "MAANED-MTM-002 eksisterende Månedsnavn skal flyttes etter datokolonnen"
+        )
+        assert result.get_column("Månedsnavn").to_list() == ["mai", None], (
+            "MAANED-MTM-002 månedsnavn skal beregnes på nytt, og null dato skal gi null"
+        )
+        assert_frame_equal(
+            result.select("Art", "Observert dato", "Antall"),
+            test_df.select("Art", "Observert dato", "Antall"),
+        )
+
+    test_legg_til_månedsnavn_maaned_mtm_002()
+    return
+
+
+@app.cell(hide_code=True)
+def MAANED_MTM_003(legg_til_månedsnavn):
+    def test_legg_til_månedsnavn_maaned_mtm_003():
+        """MAANED-MTM-003: tom input gir tom output med stabilt schema."""
+        test_df = pl.DataFrame(
+            {
+                "Art": pl.Series("Art", [], dtype=pl.Utf8),
+                "Observert dato": pl.Series("Observert dato", [], dtype=pl.Date),
+                "Antall": pl.Series("Antall", [], dtype=pl.Int64),
+            }
+        )
+
+        result = legg_til_månedsnavn(test_df)
+
+        assert result.height == 0, "MAANED-MTM-003 tom input skal gi tom output"
+        assert result.columns == ["Art", "Observert dato", "Månedsnavn", "Antall"], (
+            "MAANED-MTM-003 tom output skal ha Månedsnavn rett etter datokolonnen"
+        )
+        assert result.schema["Månedsnavn"] == pl.Utf8, (
+            "MAANED-MTM-003 Månedsnavn skal være en tekstkolonne også for tom input"
+        )
+
+    test_legg_til_månedsnavn_maaned_mtm_003()
+    return
+
+
+@app.cell(hide_code=True)
+def MAANED_MTM_004(legg_til_månedsnavn):
+    def test_legg_til_månedsnavn_maaned_mtm_004():
+        """MAANED-MTM-004: datokolonnen må finnes og ha temporal datatype."""
+        with pytest.raises(ValueError, match="Observert dato"):
+            legg_til_månedsnavn(pl.DataFrame({"Art": ["Larus canus"]}))
+
+        with pytest.raises(TypeError, match="Observert dato"):
+            legg_til_månedsnavn(pl.DataFrame({"Observert dato": ["2024-01-01"], "Art": ["Larus canus"]}))
+
+    test_legg_til_månedsnavn_maaned_mtm_004()
+    return
+
+
+@app.cell(hide_code=True)
 def md_manglende_artsnavn():
     mo.md(r"""
     ### Legger til manglende artsnavn
@@ -2983,6 +3193,7 @@ def definer_les_data_cli(
 def definer_les_data_og_kjor_alle_funksjoner(
     console,
     legg_til_arter_av_nasjonal_forvaltningsinteresse,
+    legg_til_månedsnavn,
     process_and_enrich_data,
 ):
     def les_data_og_kjør_alle_funksjoner(input_fil_sti: str, filter_year: int = 1990) -> pl.DataFrame:
@@ -2993,7 +3204,8 @@ def definer_les_data_og_kjor_alle_funksjoner(
             filter_year: Første observasjonsår som beholdes.
 
         Returns:
-            Ferdig behandlet DataFrame klar for eksport.
+            Ferdig behandlet DataFrame klar for eksport, med `Månedsnavn` rett
+            etter `Observert dato`.
 
         Raises:
             ValueError: Når input ikke følger Artskart-kontrakten eller mangler
@@ -3056,7 +3268,7 @@ def definer_les_data_og_kjor_alle_funksjoner(
                     "validScientificNameId": pl.Int64,
                 }
             )
-            return rydd_navn_og_datatyper(tomt_mellomresultat)
+            return rydd_navn_og_datatyper(tomt_mellomresultat).pipe(legg_til_månedsnavn)
 
         # Kjører alle berikingsfunksjonene — progress_bar håndteres inne i process_and_enrich_data
         df_artsdatabanken = process_and_enrich_data(input_filtrert_df)
@@ -3087,8 +3299,12 @@ def definer_les_data_og_kjor_alle_funksjoner(
         console.print("  [green]✓[/green] Arter av nasjonal forvaltningsinteresse summert til en kolonne")
 
         with console.status("[bold blue]Rydder opp i navn og datatyper..."):
-            df_alle_funksjoner = df_steg2.pipe(rydd_navn_og_datatyper)
+            df_ryddet = df_steg2.pipe(rydd_navn_og_datatyper)
         console.print("  [green]✓[/green] Ryddet navn, kolonner og datatyper")
+
+        with console.status("[bold blue]Legger til månedsnavn..."):
+            df_alle_funksjoner = df_ryddet.pipe(legg_til_månedsnavn)
+        console.print("  [green]✓[/green] Lagt til månedsnavn fra observasjonsdato")
 
         return df_alle_funksjoner
 
@@ -3106,7 +3322,7 @@ def md_testmatrise_les_data_og_kjor_alle_funksjoner():
 
     **Inputkontrakt:** `input_fil_sti` peker til en CSV-fil som DuckDB kan lese. CSV-en må inneholde alle obligatoriske Artskart-kolonner fra `get_required_artskart_columns()`. `category` må være ikke-null og i tillatt domene fra `get_allowed_categories()`. `dateTimeCollected` må kunne tolkes som dato/datetime. `filter_year` er første observasjonsår som beholdes.
 
-    **Outputkontrakt:** Returnerer `pl.DataFrame` med sluttkolonnene fra `rydd_navn_og_datatyper`. Bare observasjoner med dato fra og med `filter_year` skal inngå. Observasjoner med null dato fjernes av årfilteret. Hvis årfilteret gir null rader, returneres en tom slutt-DataFrame med riktig sluttkolonneliste.
+    **Outputkontrakt:** Returnerer `pl.DataFrame` med sluttkolonnene fra `rydd_navn_og_datatyper`, pluss `Månedsnavn` rett etter `Observert dato`. Bare observasjoner med dato fra og med `filter_year` skal inngå. Observasjoner med null dato fjernes av årfilteret. Hvis årfilteret gir null rader, returneres en tom slutt-DataFrame med riktig sluttkolonneliste.
 
     **Godkjenningsstatus:** Godkjent av bruker 2026-06-05. PIPE-MTM-006 er avklart av bruker samme dato: tomt datasett etter årfilter skal returnere tom DataFrame, og konsollmeldingen skal vise at 0 rader/observasjoner ble inkludert.
 
@@ -3114,7 +3330,7 @@ def md_testmatrise_les_data_og_kjor_alle_funksjoner():
 
     | ID | Scenario | Input | Forventet output/invariant | Toleranse | Hvorfor det betyr noe | Feilmodus testen beskytter mot | Testcelle |
     |---|---|---|---|---|---|---|---|
-    | PIPE-MTM-001 | Happy path mini-integrasjon | Liten gyldig Artskart-CSV med to observasjoner på/etter `filter_year`; NorTaxa og ANF erstattes med deterministiske fakes | Returnerer `pl.DataFrame` med godkjente sluttkolonner; begge rader inngår; pipe-kjeden får bare filtrert input; sluttverdier kommer fra de reelle lokale stegene for M1941, ANF-oppsummering og opprydding | Eksakt radantall, kolonneliste og utvalgte verdier | Bekrefter at hele pipeline-løpet henger sammen uten live API | Steg kobles feil, sluttformat endres, CSV-lesing eller pipe-kjede brekker | `PIPE_MTM_001` |
+    | PIPE-MTM-001 | Happy path mini-integrasjon | Liten gyldig Artskart-CSV med to observasjoner på/etter `filter_year`; NorTaxa og ANF erstattes med deterministiske fakes | Returnerer `pl.DataFrame` med godkjente sluttkolonner; begge rader inngår; pipe-kjeden får bare filtrert input; sluttverdier kommer fra de reelle lokale stegene for M1941, ANF-oppsummering, opprydding og månedsnavn | Eksakt radantall, kolonneliste og utvalgte verdier | Bekrefter at hele pipeline-løpet henger sammen uten live API | Steg kobles feil, sluttformat endres, CSV-lesing eller pipe-kjede brekker | `PIPE_MTM_001` |
     | PIPE-MTM-002 | Årfilter fjerner eldre og null dato | CSV med én observasjon før `filter_year`, én på grensen/etter `filter_year`, og én med null dato; NorTaxa og ANF erstattes med fakes | Bare raden på/etter `filter_year` behandles og finnes i output; konsollen melder om null-dato og filtrert radantall | Eksakt art-ID/radantall og tekstutdrag | Dokumenterer sentral filtreringsregel | Gamle observasjoner eller null-datoer slipper gjennom | `PIPE_MTM_002` |
     | PIPE-MTM-003 | Manglende obligatorisk Artskart-kolonne | CSV uten f.eks. `category` | `ValueError` med tekst som nevner manglende obligatoriske kolonner og den manglende kolonnen | Exception-type og tekstutdrag | Inputfeil skal stoppe tidlig, før API/oppslag | Utydelig feil senere i pipeline | `PIPE_MTM_003` |
     | PIPE-MTM-004 | Ugyldig `category` | CSV med `category="XYZ"` | `ValueError` med tekst om ukjente `category`-verdier og verdien `XYZ` | Exception-type og tekstutdrag | Kategorien styrer M1941 og må være validert | Feil kategori gir stille feilklassifisering | `PIPE_MTM_004` |
@@ -3130,7 +3346,6 @@ def pipeline_testhjelpere():
     from pathlib import Path
     import types
 
-
     PIPELINE_KRITERIEKOLONNER = [
         "Prioriterte arter",
         "Fredete arter",
@@ -3141,7 +3356,6 @@ def pipeline_testhjelpere():
         "Ansvarsarter",
         "Fremmede arter",
     ]
-
 
     def lag_pipeline_artskart_df(rad_overrides: list[dict[str, object]] | None = None) -> pl.DataFrame:
         """Lag en liten Artskart-CSV-fixture for pipeline-testene."""
@@ -3169,13 +3383,11 @@ def pipeline_testhjelpere():
         }
         return pl.DataFrame([{**grunnrad, **overrides} for overrides in rad_overrides])
 
-
     def skriv_pipeline_artskart_csv(tmpdir: str, df: pl.DataFrame, filnavn: str = "artskart.csv") -> str:
         """Skriv pipeline-fixture til CSV og returner filsti."""
         csv_sti = Path(tmpdir) / filnavn
         df.write_csv(csv_sti)
         return str(csv_sti)
-
 
     def legg_til_pipeline_fake_taksonomi(df: pl.DataFrame) -> pl.DataFrame:
         """Legg til deterministiske taksonomikolonner uten NorTaxa-oppslag."""
@@ -3190,7 +3402,6 @@ def pipeline_testhjelpere():
             pl.lit("testordenen").alias("OrdenNavn"),
         )
 
-
     def legg_til_pipeline_fake_anf(df: pl.DataFrame) -> pl.DataFrame:
         """Legg til deterministiske ANF-kolonner uten DuckDB-oppslag."""
         return df.with_columns(
@@ -3198,7 +3409,6 @@ def pipeline_testhjelpere():
             pl.lit(None, dtype=pl.Utf8).alias("verdi_m1941_nasjonal"),
             pl.col("verdi_rodliste_artskart").alias("Verdi M1941"),
         )
-
 
     def lag_pipeline_fake_process(calls: list[tuple[str, list[object]]]):
         """Lag fake for `process_and_enrich_data` som registrerer filtrert input."""
@@ -3208,7 +3418,6 @@ def pipeline_testhjelpere():
             return legg_til_pipeline_fake_taksonomi(df)
 
         return fake_process
-
 
     def lag_pipeline_fake_anf(calls: list[tuple[str, list[object]]]):
         """Lag fake for ANF-steget som registrerer filtrert input."""
@@ -3221,7 +3430,6 @@ def pipeline_testhjelpere():
 
         return fake_anf
 
-
     def _lag_lukkingscelle(verdi: object):
         """Lag én closure-celle slik pipeline-tester kan bytte celleavhengigheter eksplisitt."""
 
@@ -3230,17 +3438,17 @@ def pipeline_testhjelpere():
 
         return hent_verdi.__closure__[0]
 
-
     def lag_pipeline_testfunksjon(
         produksjonsfunksjon,
         *,
         process_and_enrich_data_fn=None,
         legg_til_anf_fn=None,
     ):
-        """Returner pipeline-funksjon med testavhengigheter bundet i closure.
+        """Returner pipeline-funksjon med isolerte testavhengigheter.
 
-        Dette er en test-only seam for marimo-cellen: produksjonsfunksjonen endres
-        ikke, men testene slipper upålitelig `__globals__`-patching.
+        I en lagret marimo-notebook ligger celleavhengigheter normalt i closure.
+        Live code-mode kan eksponere dem i funksjonens globals; da klones globals
+        slik at produksjonsfunksjonen fortsatt ikke muteres.
         """
         replacements = {}
         if process_and_enrich_data_fn is not None:
@@ -3253,27 +3461,29 @@ def pipeline_testhjelpere():
         if len(freevars) != len(closure):
             raise AssertionError("PIPE-test kunne ikke lese closure for pipeline-funksjonen")
 
-        mangler = sorted(set(replacements) - set(freevars))
+        globale_replacements = set(replacements) - set(freevars)
+        mangler = sorted(navn for navn in globale_replacements if navn not in produksjonsfunksjon.__globals__)
         if mangler:
             raise AssertionError(
-                "PIPE-test prøver å erstatte avhengigheter som ikke finnes i pipeline-closure: " + ", ".join(mangler)
+                "PIPE-test prøver å erstatte avhengigheter som ikke finnes i pipeline-funksjonen: " + ", ".join(mangler)
             )
 
         ny_closure = tuple(
             _lag_lukkingscelle(replacements[navn]) if navn in replacements else celle
             for navn, celle in zip(freevars, closure)
         )
+        test_globals = dict(produksjonsfunksjon.__globals__)
+        test_globals.update({navn: replacements[navn] for navn in globale_replacements})
         testfunksjon = types.FunctionType(
             produksjonsfunksjon.__code__,
-            produksjonsfunksjon.__globals__,
+            test_globals,
             name=produksjonsfunksjon.__name__,
             argdefs=produksjonsfunksjon.__defaults__,
-            closure=ny_closure,
+            closure=ny_closure or None,
         )
         testfunksjon.__kwdefaults__ = produksjonsfunksjon.__kwdefaults__
         testfunksjon.__annotations__ = dict(getattr(produksjonsfunksjon, "__annotations__", {}))
         return testfunksjon
-
 
     @contextmanager
     def pipeline_fake_status(*_args, **_kwargs):
@@ -3297,9 +3507,9 @@ def PIPE_MTM_001(
     lag_pipeline_fake_anf,
     lag_pipeline_fake_process,
     lag_pipeline_testfunksjon,
+    legg_til_månedsnavn_forventede_kolonner,
     les_data_og_kjør_alle_funksjoner,
     pipeline_fake_status,
-    rydd_navn_og_datatyper_forventede_kolonner,
     skriv_pipeline_artskart_csv,
 ):
     def test_les_data_og_kjør_alle_funksjoner_pipe_mtm_001():
@@ -3347,7 +3557,7 @@ def PIPE_MTM_001(
                 result = test_pipeline(csv_sti, filter_year=2020)
 
         assert isinstance(result, pl.DataFrame), "PIPE-MTM-001 skal returnere Polars DataFrame"
-        assert result.columns == rydd_navn_og_datatyper_forventede_kolonner(), (
+        assert result.columns == legg_til_månedsnavn_forventede_kolonner(), (
             "PIPE-MTM-001 skal returnere godkjent sluttkolonneliste"
         )
         assert result.height == 2, "PIPE-MTM-001 begge rader etter filter_year skal inngå"
@@ -3358,7 +3568,12 @@ def PIPE_MTM_001(
         assert result.get_column("Artens ID").to_list() == [1002, 1001], (
             "PIPE-MTM-001 sluttabellen skal sorteres av rydd_navn_og_datatyper"
         )
-        assert result.get_column("Kategori").to_list() == ["EN", "LC"], "PIPE-MTM-001 kategori skal følge sluttresultatet"
+        assert result.get_column("Månedsnavn").to_list() == ["mai", "januar"], (
+            "PIPE-MTM-001 månedsnavn skal utledes etter sluttabellen er sortert"
+        )
+        assert result.get_column("Kategori").to_list() == ["EN", "LC"], (
+            "PIPE-MTM-001 kategori skal følge sluttresultatet"
+        )
         assert result.get_column("Verdi M1941").to_list() == ["Svært stor verdi", "Noe verdi"], (
             "PIPE-MTM-001 M1941 skal beregnes av reelt M1941-steg"
         )
@@ -3371,7 +3586,6 @@ def PIPE_MTM_001(
         assert any("Filtrert til 2 rader" in tekst for tekst in utskrifter), (
             "PIPE-MTM-001 konsollen skal melde filtrert radantall"
         )
-
 
     test_les_data_og_kjør_alle_funksjoner_pipe_mtm_001()
     return
@@ -3444,6 +3658,9 @@ def PIPE_MTM_002(
         assert result.get_column("Observert dato").to_list() == [dt_date(1990, 1, 1)], (
             "PIPE-MTM-002 grensedato filter_year-01-01 skal beholdes"
         )
+        assert result.get_column("Månedsnavn").to_list() == ["januar"], (
+            "PIPE-MTM-002 grensedatoen skal få riktig månedsnavn"
+        )
         assert calls == [
             ("process_and_enrich_data", [2002]),
             ("legg_til_arter_av_nasjonal_forvaltningsinteresse", [2002]),
@@ -3454,7 +3671,6 @@ def PIPE_MTM_002(
         assert any("Filtrert til 1 rader" in tekst for tekst in utskrifter), (
             "PIPE-MTM-002 konsollen skal melde filtrert radantall"
         )
-
 
     test_les_data_og_kjør_alle_funksjoner_pipe_mtm_002()
     return
@@ -3604,9 +3820,9 @@ def PIPE_MTM_006(
     console,
     lag_pipeline_artskart_df,
     lag_pipeline_testfunksjon,
+    legg_til_månedsnavn_forventede_kolonner,
     les_data_og_kjør_alle_funksjoner,
     pipeline_fake_status,
-    rydd_navn_og_datatyper_forventede_kolonner,
     skriv_pipeline_artskart_csv,
 ):
     def test_les_data_og_kjør_alle_funksjoner_pipe_mtm_006():
@@ -3649,9 +3865,10 @@ def PIPE_MTM_006(
 
         assert isinstance(result, pl.DataFrame), "PIPE-MTM-006 skal returnere Polars DataFrame"
         assert result.height == 0, "PIPE-MTM-006 årfilter uten treff skal gi tom DataFrame"
-        assert result.columns == rydd_navn_og_datatyper_forventede_kolonner(), (
+        assert result.columns == legg_til_månedsnavn_forventede_kolonner(), (
             "PIPE-MTM-006 tomt resultat skal ha godkjente sluttkolonner"
         )
+        assert result.schema["Månedsnavn"] == pl.Utf8, "PIPE-MTM-006 tomt resultat skal ha Månedsnavn som tekstkolonne"
         assert calls == [], "PIPE-MTM-006 skal ikke kalle NorTaxa- eller ANF-steg når årfilteret gir 0 rader"
         assert any("Filtrert til 0 rader" in tekst for tekst in utskrifter), (
             "PIPE-MTM-006 konsollen skal melde at filteret ga 0 rader"
@@ -3659,7 +3876,6 @@ def PIPE_MTM_006(
         assert any("Ingen observasjoner etter årfilter" in tekst for tekst in utskrifter), (
             "PIPE-MTM-006 konsollen skal forklare tomt resultat etter årfilter"
         )
-
 
     test_les_data_og_kjør_alle_funksjoner_pipe_mtm_006()
     return
