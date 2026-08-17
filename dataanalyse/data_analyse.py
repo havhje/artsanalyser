@@ -1246,42 +1246,6 @@ def dekningsmatrise_funksjonsvisning():
 
 
 @app.cell(hide_code=True)
-def dekningsmatrise_kontroll(DEKNINGSMATRISE_MAAL, valgt_fil):
-    mo.stop(not valgt_fil.value)
-
-    dekningsmatrise_maal = mo.ui.dropdown(
-        options=DEKNINGSMATRISE_MAAL,
-        value="Aktive datoer",
-        label="Fargelegg rutene etter",
-    )
-    dekningsmatrise_maal
-    return (dekningsmatrise_maal,)
-
-
-@app.cell(hide_code=True)
-def dekningsmatrise_visning(
-    arter_df,
-    dekningsmatrise_maal,
-    lag_dekningsmatrise,
-    lag_dekningsmatrisefigur,
-    valgt_fil,
-):
-    mo.stop(not valgt_fil.value)
-
-    dekningsmatrise_df = lag_dekningsmatrise(arter_df)
-    dekningsmatrise_figur = mo.ui.altair_chart(
-        lag_dekningsmatrisefigur(
-            dekningsmatrise_df,
-            dekningsmatrise_maal.value,
-        ),
-        chart_selection=False,
-        legend_selection=False,
-    )
-    dekningsmatrise_figur
-    return
-
-
-@app.cell(hide_code=True)
 def maanedsgrunnlag_seksjon():
     mo.md(r"""
     ## Datagrunnlag gjennom året
@@ -1486,10 +1450,6 @@ def maanedsgrunnlag_tabellfunksjon(MAANEDSGRUNNLAG_OUTPUTKOLONNER):
                 locations=gt.loc.column_labels(columns="Registreringer"),
             )
             .tab_footnote(
-                footnote=("Summen av Antall. Manglende individualCount er satt til 1 i databehandlingen."),
-                locations=gt.loc.column_labels(columns="Individer"),
-            )
-            .tab_footnote(
                 footnote="Unike datoer med minst én registreringsrad i måneden.",
                 locations=gt.loc.column_labels(columns="Aktive datoer"),
             )
@@ -1580,7 +1540,7 @@ def maanedsgrunnlag_tester(lag_maanedsgrunnlag, lag_maanedsgrunnlagstabell):
         assert isinstance(tabell, gt.GT)
         assert "Datagrunnlag gjennom året" in html
         assert "Individer" in html
-        assert "individualCount" in html
+        assert "individualCount" not in html
 
     test_maanedsgrunnlag_mtm_001()
     test_maanedsgrunnlag_mtm_002()
@@ -1608,6 +1568,19 @@ def maanedsgrunnlag_funksjonsvisning():
     return
 
 
+@app.cell(column=1, hide_code=True)
+def _(artsdata_df):
+    artsdata_df
+    return
+
+
+@app.cell(hide_code=True)
+def _(artsstatistikk_df, lag_artsstatistikk_tabell):
+    artsstatistikk_tabell = lag_artsstatistikk_tabell(artsstatistikk_df)
+    artsstatistikk_tabell
+    return
+
+
 @app.cell(hide_code=True)
 def maanedsgrunnlag_visning(
     arter_df,
@@ -1623,38 +1596,40 @@ def maanedsgrunnlag_visning(
     return
 
 
-@app.cell(column=1, hide_code=True)
-def _(artsdata_df):
-    artsdata_df
-    return
+@app.cell(hide_code=True)
+def dekningsmatrise_kontroll(DEKNINGSMATRISE_MAAL, valgt_fil):
+    mo.stop(not valgt_fil.value)
+
+    dekningsmatrise_maal = mo.ui.dropdown(
+        options=DEKNINGSMATRISE_MAAL,
+        value="Aktive datoer",
+        label="Fargelegg rutene etter",
+    )
+    dekningsmatrise_maal
+    return (dekningsmatrise_maal,)
 
 
 @app.cell(hide_code=True)
-def _(artsstatistikk_df, lag_artsstatistikk_tabell):
-    artsstatistikk_tabell = lag_artsstatistikk_tabell(artsstatistikk_df)
-    artsstatistikk_tabell
+def dekningsmatrise_visning(
+    arter_df,
+    dekningsmatrise_maal,
+    lag_dekningsmatrise,
+    lag_dekningsmatrisefigur,
+    valgt_fil,
+):
+    mo.stop(not valgt_fil.value)
+
+    dekningsmatrise_df = lag_dekningsmatrise(arter_df)
+    dekningsmatrise_figur = mo.ui.altair_chart(
+        lag_dekningsmatrisefigur(
+            dekningsmatrise_df,
+            dekningsmatrise_maal.value,
+        ),
+        chart_selection=False,
+        legend_selection=False,
+    )
+    dekningsmatrise_figur
     return
-
-
-@app.cell(hide_code=True)
-def _(arter_df, plotly_map, plotly_map_fig):
-    def get_selected_row_nrs(points, figure):
-        """For every selected map point, use its curveNumber to find the right Plotly trace, use its pointIndex to find the right point inside that trace, look in that point’s hidden customdata, take the first value, convert it to an integer, and return all those integers as a list."""
-        return [int(figure.data[point["curveNumber"]].customdata[point["pointIndex"]][0]) for point in points]
-
-    selected_row_nrs = get_selected_row_nrs(plotly_map.points, plotly_map_fig)
-
-    selected_arter_df = (
-        arter_df.with_row_index("__row_nr").filter(pl.col("__row_nr").is_in(selected_row_nrs)).drop("__row_nr")
-    )
-
-    mo.vstack(
-        [
-            mo.md(f"**Valgte observasjoner fra heatmap:** {selected_arter_df.height}"),
-            mo.ui.table(selected_arter_df, page_size=10),
-        ]
-    )
-    return (selected_arter_df,)
 
 
 @app.cell(column=2, hide_code=True)
@@ -1781,6 +1756,27 @@ def plotlymap(arter_df, farge_kart_arter):
     )
     plotly_map
     return plotly_map, plotly_map_fig
+
+
+@app.cell(hide_code=True)
+def _(arter_df, plotly_map, plotly_map_fig):
+    def get_selected_row_nrs(points, figure):
+        """For every selected map point, use its curveNumber to find the right Plotly trace, use its pointIndex to find the right point inside that trace, look in that point’s hidden customdata, take the first value, convert it to an integer, and return all those integers as a list."""
+        return [int(figure.data[point["curveNumber"]].customdata[point["pointIndex"]][0]) for point in points]
+
+    selected_row_nrs = get_selected_row_nrs(plotly_map.points, plotly_map_fig)
+
+    selected_arter_df = (
+        arter_df.with_row_index("__row_nr").filter(pl.col("__row_nr").is_in(selected_row_nrs)).drop("__row_nr")
+    )
+
+    mo.vstack(
+        [
+            mo.md(f"**Valgte observasjoner fra heatmap:** {selected_arter_df.height}"),
+            mo.ui.table(selected_arter_df, page_size=10),
+        ]
+    )
+    return (selected_arter_df,)
 
 
 @app.cell
