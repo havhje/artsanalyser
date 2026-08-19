@@ -4,11 +4,6 @@ __generated_with = "0.23.16"
 app = marimo.App(width="columns", layout_file="layouts/data_analyse.grid.json")
 
 with app.setup(hide_code=True):
-    import marimo as mo
-    import altair as alt
-    import polars as pl
-    import plotly.express as px
-    import leafmap.foliumap as leafmap
     import inspect
     import textwrap
     from datetime import date
@@ -18,10 +13,7 @@ with app.setup(hide_code=True):
     import datashader as ds
     import geopandas as gpd
     import great_tables as gt
-    import holoviews as hv
-    import holoviews.operation.datashader as h
     import hvplot.polars
-    import leafmap.foliumap as leafmap
     import marimo as mo
     import plotly.express as px
     import polars as pl
@@ -542,29 +534,9 @@ def _(
 
 
 @app.cell(hide_code=True)
-def _(ARTSSTATISTIKK_OUTPUTKOLONNER):
-    def lag_artsstatistikk_csv(artsstatistikk_df: pl.DataFrame) -> bytes:
-        """Eksporter artsstatistikk som Excel-vennlig semikolonseparert UTF-8."""
-        manglende_kolonner = sorted(set(ARTSSTATISTIKK_OUTPUTKOLONNER) - set(artsstatistikk_df.columns))
-        if manglende_kolonner:
-            raise ValueError("Mangler kolonner for artsstatistikk-eksport: " + ", ".join(manglende_kolonner))
-
-        eksport_df = artsstatistikk_df.with_columns(
-            pl.col("Månedsprofil")
-            .list.eval(pl.element().cast(pl.String))
-            .list.join(",")
-            .alias("Månedsprofil (Jan–Des)")
-        ).drop("Månedsprofil")
-        return ("\ufeff" + eksport_df.write_csv(separator=";")).encode("utf-8")
-
-    return (lag_artsstatistikk_csv,)
-
-
-@app.cell(hide_code=True)
 def _(
     hent_påkrevde_artsstatistikk_kolonner,
     lag_artsstatistikk,
-    lag_artsstatistikk_csv,
     lag_artsstatistikk_tabell,
     valider_artsstatistikk_input,
 ):
@@ -577,14 +549,10 @@ def _(
         valider_artsstatistikk_input,
         lag_artsstatistikk,
         lag_artsstatistikk_tabell,
-        lag_artsstatistikk_csv,
     ]
     _funksjonsinnhold = mo.vstack(
         [
-            mo.md(
-                "Funksjonene under utgjør den validerte kjeden fra observasjoner "
-                "til Great Tables-visning og CSV-eksport."
-            ),
+            mo.md("Funksjonene under utgjør den validerte kjeden fra observasjoner til Great Tables-visning."),
             *[_vis_kildekode(_funksjon) for _funksjon in _funksjonsobjekter],
         ]
     )
@@ -827,26 +795,6 @@ def _(
 
 @app.cell(hide_code=True)
 def _(
-    lag_artsstatistikk,
-    lag_artsstatistikk_csv,
-    lag_artsstatistikk_testinput,
-):
-    def test_artsstatistikk_mtm_009():
-        statistikk = lag_artsstatistikk(lag_artsstatistikk_testinput())
-        eksport = lag_artsstatistikk_csv(statistikk)
-        tekst = eksport.decode("utf-8")
-
-        assert eksport.startswith(b"\xef\xbb\xbf")
-        assert ";" in tekst.splitlines()[0]
-        assert "Månedsprofil (Jan–Des)" in tekst.splitlines()[0]
-        assert "1,0,0,0,0,0,0,0,0,0,0,0" in tekst
-
-    test_artsstatistikk_mtm_009()
-    return (test_artsstatistikk_mtm_009,)
-
-
-@app.cell(hide_code=True)
-def _(
     artsstatistikk_forventede_kolonner,
     lag_artsstatistikk_testinput,
     lag_tom_artsstatistikk_testinput,
@@ -858,7 +806,6 @@ def _(
     test_artsstatistikk_mtm_006,
     test_artsstatistikk_mtm_007,
     test_artsstatistikk_mtm_008,
-    test_artsstatistikk_mtm_009,
 ):
     def _vis_testkode(_funksjon):
         _kildekode = textwrap.dedent(inspect.getsource(_funksjon)).strip()
@@ -877,7 +824,6 @@ def _(
     | ARTSTABELL-MTM-006 | Manglende obligatorisk kolonne | Tidlig feil som nevner kolonnen |
     | ARTSTABELL-MTM-007 | Feil datatype eller ukjent kategori | Tidlig og forklarende feil |
     | ARTSTABELL-MTM-008 | Great Tables-rendering | Tabell, nanoplot, tittel og fotnoter renderes |
-    | ARTSTABELL-MTM-009 | CSV-eksport | UTF-8-BOM, semikolon og tekstlig Jan–Des-profil |
     """)
     _testfunksjoner = [
         lag_artsstatistikk_testinput,
@@ -891,11 +837,10 @@ def _(
         test_artsstatistikk_mtm_006,
         test_artsstatistikk_mtm_007,
         test_artsstatistikk_mtm_008,
-        test_artsstatistikk_mtm_009,
     ]
     _testinnhold = mo.vstack(
         [
-            mo.md("Testene kjøres reaktivt og dekker inputkontrakt, aggregering, rendering, nanoplot og eksport."),
+            mo.md("Testene kjøres reaktivt og dekker inputkontrakt, aggregering, rendering og nanoplot."),
             _testmatrise,
             *[_vis_testkode(_funksjon) for _funksjon in _testfunksjoner],
         ]
@@ -1134,200 +1079,197 @@ def _():
     return beregn_sesongprofil_individer, beregn_sesongprofil_observasjoner
 
 
-@app.cell(hide_code=True)
-def _():
-    def lag_sesongprofilfigur(
-        sesongprofil_df: pl.DataFrame,
-        metrikk: str,
-        artstekst: str,
-        vindusstorrelse: int,
-    ) -> alt.VConcatChart:
-        """Lag to samkjørte Altair-paneler for rå og innsatsjustert sesongprofil."""
-        paakrevde_kolonner = {
-            "Dag i året",
-            "Dato",
-            "Verdi i vindu",
-            "Alle artsobservasjoner i vindu",
-            "Datodager i vindu",
-            "Råverdi per dag",
-            "Innsatsjustert verdi per 1 000",
-        }
-        manglende_kolonner = sorted(paakrevde_kolonner - set(sesongprofil_df.columns))
-        if manglende_kolonner:
-            raise ValueError("Mangler kolonner for sesongprofilfiguren: " + ", ".join(manglende_kolonner))
-        if sesongprofil_df.is_empty():
-            raise ValueError("Kan ikke lage sesongprofilfigur fra tomt datagrunnlag")
-        if metrikk not in {"Observasjoner", "Individer"}:
-            raise ValueError("Metrikk må være `Observasjoner` eller `Individer`")
+@app.function(hide_code=True)
+def lag_sesongprofilfigur(
+    sesongprofil_df: pl.DataFrame,
+    metrikk: str,
+    artstekst: str,
+    vindusstorrelse: int,
+) -> alt.VConcatChart:
+    """Lag to samkjørte Altair-paneler for rå og innsatsjustert sesongprofil."""
+    paakrevde_kolonner = {
+        "Dag i året",
+        "Dato",
+        "Verdi i vindu",
+        "Alle artsobservasjoner i vindu",
+        "Datodager i vindu",
+        "Råverdi per dag",
+        "Innsatsjustert verdi per 1 000",
+    }
+    manglende_kolonner = sorted(paakrevde_kolonner - set(sesongprofil_df.columns))
+    if manglende_kolonner:
+        raise ValueError("Mangler kolonner for sesongprofilfiguren: " + ", ".join(manglende_kolonner))
+    if sesongprofil_df.is_empty():
+        raise ValueError("Kan ikke lage sesongprofilfigur fra tomt datagrunnlag")
+    if metrikk not in {"Observasjoner", "Individer"}:
+        raise ValueError("Metrikk må være `Observasjoner` eller `Individer`")
 
-        _er_observasjoner = metrikk == "Observasjoner"
-        _raatt_aksetittel = "Gj.snitt observasjoner per dag" if _er_observasjoner else "Gj.snitt individer per dag"
-        _justert_aksetittel = (
-            "Observasjoner per 1 000 artsobservasjoner"
-            if _er_observasjoner
-            else "Individer per 1 000 artsobservasjoner"
-        )
-        _verditittel = "Observasjoner i vinduet" if _er_observasjoner else "Individer i vinduet"
-        _maanedsstarter = [1, 32, 61, 92, 122, 153, 183, 214, 245, 275, 306, 336]
-        _maanedsuttrykk = (
-            "datum.value === 1 ? 'Jan' : datum.value === 32 ? 'Feb' : "
-            "datum.value === 61 ? 'Mar' : datum.value === 92 ? 'Apr' : "
-            "datum.value === 122 ? 'Mai' : datum.value === 153 ? 'Jun' : "
-            "datum.value === 183 ? 'Jul' : datum.value === 214 ? 'Aug' : "
-            "datum.value === 245 ? 'Sep' : datum.value === 275 ? 'Okt' : "
-            "datum.value === 306 ? 'Nov' : datum.value === 336 ? 'Des' : ''"
-        )
-        _hover = alt.selection_point(
-            name="sesongprofil_hover",
-            fields=["Dag i året"],
-            nearest=True,
-            on="pointerover",
-            empty=False,
-            clear="pointerout",
-        )
+    _er_observasjoner = metrikk == "Observasjoner"
+    _raatt_aksetittel = "Gj.snitt observasjoner per dag" if _er_observasjoner else "Gj.snitt individer per dag"
+    _justert_aksetittel = (
+        "Observasjoner per 1 000 artsobservasjoner"
+        if _er_observasjoner
+        else "Individer per 1 000 artsobservasjoner"
+    )
+    _verditittel = "Observasjoner i vinduet" if _er_observasjoner else "Individer i vinduet"
+    _maanedsstarter = [1, 32, 61, 92, 122, 153, 183, 214, 245, 275, 306, 336]
+    _maanedsuttrykk = (
+        "datum.value === 1 ? 'Jan' : datum.value === 32 ? 'Feb' : "
+        "datum.value === 61 ? 'Mar' : datum.value === 92 ? 'Apr' : "
+        "datum.value === 122 ? 'Mai' : datum.value === 153 ? 'Jun' : "
+        "datum.value === 183 ? 'Jul' : datum.value === 214 ? 'Aug' : "
+        "datum.value === 245 ? 'Sep' : datum.value === 275 ? 'Okt' : "
+        "datum.value === 306 ? 'Nov' : datum.value === 336 ? 'Des' : ''"
+    )
+    _hover = alt.selection_point(
+        name="sesongprofil_hover",
+        fields=["Dag i året"],
+        nearest=True,
+        on="pointerover",
+        empty=False,
+        clear="pointerout",
+    )
 
-        def _xakse(*, vis_etiketter: bool) -> alt.X:
-            return alt.X(
-                "Dag i året:Q",
-                title="Dato i kalenderåret" if vis_etiketter else None,
-                scale=alt.Scale(domain=[1, 366], nice=False),
-                axis=alt.Axis(
-                    values=_maanedsstarter,
-                    labelExpr=_maanedsuttrykk,
-                    labels=vis_etiketter,
-                    ticks=vis_etiketter,
-                    domain=vis_etiketter,
-                    grid=True,
-                    labelPadding=8,
-                    titlePadding=12,
-                ),
-            )
-
-        _raabase = alt.Chart(sesongprofil_df).encode(
-            x=_xakse(vis_etiketter=False),
-            y=alt.Y(
-                "Råverdi per dag:Q",
-                title=_raatt_aksetittel,
-                scale=alt.Scale(zero=True, nice=True),
+    def _xakse(*, vis_etiketter: bool) -> alt.X:
+        return alt.X(
+            "Dag i året:Q",
+            title="Dato i kalenderåret" if vis_etiketter else None,
+            scale=alt.Scale(domain=[1, 366], nice=False),
+            axis=alt.Axis(
+                values=_maanedsstarter,
+                labelExpr=_maanedsuttrykk,
+                labels=vis_etiketter,
+                ticks=vis_etiketter,
+                domain=vis_etiketter,
+                grid=True,
+                labelPadding=8,
+                titlePadding=12,
             ),
         )
-        _raatooltip = [
-            alt.Tooltip("Dato:N", title="Dato"),
-            alt.Tooltip("Råverdi per dag:Q", title=_raatt_aksetittel, format=".3f"),
-            alt.Tooltip("Verdi i vindu:Q", title=_verditittel, format=",.0f"),
-            alt.Tooltip("Datodager i vindu:Q", title="Datodager i vinduet", format=",.0f"),
-        ]
-        _raapanel = alt.layer(
-            _raabase.mark_area(color="#64748B", opacity=0.12),
-            _raabase.mark_line(color="#475569", strokeWidth=2.4),
-            _raabase.mark_point(opacity=0),
-            _raabase.mark_circle(color="#334155", size=70).encode(
-                opacity=alt.condition(_hover, alt.value(1), alt.value(0)),
-                tooltip=_raatooltip,
-            ),
-            _raabase.mark_rule(color="#94A3B8", strokeWidth=1).encode(
-                opacity=alt.condition(_hover, alt.value(0.7), alt.value(0))
-            ),
-        ).properties(
-            height=220,
-            width="container",
+
+    _raabase = alt.Chart(sesongprofil_df).encode(
+        x=_xakse(vis_etiketter=False),
+        y=alt.Y(
+            "Råverdi per dag:Q",
+            title=_raatt_aksetittel,
+            scale=alt.Scale(zero=True, nice=True),
+        ),
+    )
+    _raatooltip = [
+        alt.Tooltip("Dato:N", title="Dato"),
+        alt.Tooltip("Råverdi per dag:Q", title=_raatt_aksetittel, format=".3f"),
+        alt.Tooltip("Verdi i vindu:Q", title=_verditittel, format=",.0f"),
+        alt.Tooltip("Datodager i vindu:Q", title="Datodager i vinduet", format=",.0f"),
+    ]
+    _raapanel = alt.layer(
+        _raabase.mark_area(color="#64748B", opacity=0.12),
+        _raabase.mark_line(color="#475569", strokeWidth=2.4),
+        _raabase.mark_point(opacity=0),
+        _raabase.mark_circle(color="#334155", size=70).encode(
+            opacity=alt.condition(_hover, alt.value(1), alt.value(0)),
+            tooltip=_raatooltip,
+        ),
+        _raabase.mark_rule(color="#94A3B8", strokeWidth=1).encode(
+            opacity=alt.condition(_hover, alt.value(0.7), alt.value(0))
+        ),
+    ).properties(
+        height=220,
+        width="container",
+        title=alt.TitleParams(
+            text="Rå sesongprofil",
+            subtitle="Gjennomsnitt per kalenderdag på tvers av år",
+            anchor="start",
+            color="#334155",
+            fontSize=15,
+            subtitleColor="#64748B",
+            subtitleFontSize=12,
+        ),
+    )
+
+    _justertbase = alt.Chart(sesongprofil_df).encode(
+        x=_xakse(vis_etiketter=True),
+        y=alt.Y(
+            "Innsatsjustert verdi per 1 000:Q",
+            title=_justert_aksetittel,
+            scale=alt.Scale(zero=True, nice=True),
+        ),
+    )
+    _justerttooltip = [
+        alt.Tooltip("Dato:N", title="Dato"),
+        alt.Tooltip(
+            "Innsatsjustert verdi per 1 000:Q",
+            title=_justert_aksetittel,
+            format=".2f",
+        ),
+        alt.Tooltip("Verdi i vindu:Q", title=_verditittel, format=",.0f"),
+        alt.Tooltip(
+            "Alle artsobservasjoner i vindu:Q",
+            title="Alle artsobservasjoner i vinduet",
+            format=",.0f",
+        ),
+    ]
+    _justertpanel = alt.layer(
+        _justertbase.mark_area(color="#3B82F6", opacity=0.11),
+        _justertbase.mark_line(color="#2563EB", strokeWidth=2.6),
+        _justertbase.mark_point(opacity=0),
+        _justertbase.mark_circle(color="#1D4ED8", size=70).encode(
+            opacity=alt.condition(_hover, alt.value(1), alt.value(0)),
+            tooltip=_justerttooltip,
+        ),
+        _justertbase.mark_rule(color="#60A5FA", strokeWidth=1).encode(
+            opacity=alt.condition(_hover, alt.value(0.7), alt.value(0))
+        ),
+    ).properties(
+        height=220,
+        width="container",
+        title=alt.TitleParams(
+            text="Innsatsjustert sesongprofil",
+            subtitle="Valgt art relativt til all artsrapportering i samme datovindu",
+            anchor="start",
+            color="#1E3A8A",
+            fontSize=15,
+            subtitleColor="#64748B",
+            subtitleFontSize=12,
+        ),
+    )
+
+    return (
+        alt.vconcat(
+            _raapanel,
+            _justertpanel,
+            spacing=24,
             title=alt.TitleParams(
-                text="Rå sesongprofil",
-                subtitle="Gjennomsnitt per kalenderdag på tvers av år",
+                text=f"Sesongprofil – {artstekst}",
+                subtitle=[
+                    "Alle år er foldet til januar–desember",
+                    f"Sentrert, sirkulært rullerende vindu: {vindusstorrelse} dager",
+                ],
                 anchor="start",
-                color="#334155",
-                fontSize=15,
-                subtitleColor="#64748B",
+                color="#0F172A",
+                fontSize=21,
+                fontWeight=600,
+                offset=18,
+                subtitleColor="#475569",
                 subtitleFontSize=12,
+                subtitlePadding=6,
             ),
         )
-
-        _justertbase = alt.Chart(sesongprofil_df).encode(
-            x=_xakse(vis_etiketter=True),
-            y=alt.Y(
-                "Innsatsjustert verdi per 1 000:Q",
-                title=_justert_aksetittel,
-                scale=alt.Scale(zero=True, nice=True),
-            ),
+        .resolve_scale(x="shared", y="independent")
+        .add_params(_hover)
+        .configure_view(stroke=None)
+        .configure_axis(
+            domainColor="#CBD5E1",
+            gridColor="#E2E8F0",
+            gridOpacity=0.75,
+            labelColor="#475569",
+            labelFontSize=11,
+            tickColor="#CBD5E1",
+            titleColor="#334155",
+            titleFontSize=12,
+            titleFontWeight=500,
         )
-        _justerttooltip = [
-            alt.Tooltip("Dato:N", title="Dato"),
-            alt.Tooltip(
-                "Innsatsjustert verdi per 1 000:Q",
-                title=_justert_aksetittel,
-                format=".2f",
-            ),
-            alt.Tooltip("Verdi i vindu:Q", title=_verditittel, format=",.0f"),
-            alt.Tooltip(
-                "Alle artsobservasjoner i vindu:Q",
-                title="Alle artsobservasjoner i vinduet",
-                format=",.0f",
-            ),
-        ]
-        _justertpanel = alt.layer(
-            _justertbase.mark_area(color="#3B82F6", opacity=0.11),
-            _justertbase.mark_line(color="#2563EB", strokeWidth=2.6),
-            _justertbase.mark_point(opacity=0),
-            _justertbase.mark_circle(color="#1D4ED8", size=70).encode(
-                opacity=alt.condition(_hover, alt.value(1), alt.value(0)),
-                tooltip=_justerttooltip,
-            ),
-            _justertbase.mark_rule(color="#60A5FA", strokeWidth=1).encode(
-                opacity=alt.condition(_hover, alt.value(0.7), alt.value(0))
-            ),
-        ).properties(
-            height=220,
-            width="container",
-            title=alt.TitleParams(
-                text="Innsatsjustert sesongprofil",
-                subtitle="Valgt art relativt til all artsrapportering i samme datovindu",
-                anchor="start",
-                color="#1E3A8A",
-                fontSize=15,
-                subtitleColor="#64748B",
-                subtitleFontSize=12,
-            ),
-        )
-
-        return (
-            alt.vconcat(
-                _raapanel,
-                _justertpanel,
-                spacing=24,
-                title=alt.TitleParams(
-                    text=f"Sesongprofil – {artstekst}",
-                    subtitle=[
-                        "Alle år er foldet til januar–desember",
-                        f"Sentrert, sirkulært rullerende vindu: {vindusstorrelse} dager",
-                    ],
-                    anchor="start",
-                    color="#0F172A",
-                    fontSize=21,
-                    fontWeight=600,
-                    offset=18,
-                    subtitleColor="#475569",
-                    subtitleFontSize=12,
-                    subtitlePadding=6,
-                ),
-            )
-            .resolve_scale(x="shared", y="independent")
-            .add_params(_hover)
-            .configure_view(stroke=None)
-            .configure_axis(
-                domainColor="#CBD5E1",
-                gridColor="#E2E8F0",
-                gridOpacity=0.75,
-                labelColor="#475569",
-                labelFontSize=11,
-                tickColor="#CBD5E1",
-                titleColor="#334155",
-                titleFontSize=12,
-                titleFontWeight=500,
-            )
-            .configure_title(font="sans-serif")
-        )
-
-    return (lag_sesongprofilfigur,)
+        .configure_title(font="sans-serif")
+    )
 
 
 @app.cell(hide_code=True)
@@ -1380,15 +1322,11 @@ def _(beregn_sesongprofil_individer, beregn_sesongprofil_observasjoner):
     test_sesongprofil_mtm_001()
     test_sesongprofil_mtm_002()
     test_sesongprofil_mtm_003()
-    return (
-        test_sesongprofil_mtm_001,
-        test_sesongprofil_mtm_002,
-        test_sesongprofil_mtm_003,
-    )
+    return
 
 
 @app.cell(hide_code=True)
-def _(lag_sesongprofilfigur, beregn_sesongprofil_observasjoner):
+def _(beregn_sesongprofil_observasjoner):
     def test_sesongprofil_mtm_004():
         _grunnlag = pl.DataFrame(
             {
@@ -1406,7 +1344,7 @@ def _(lag_sesongprofilfigur, beregn_sesongprofil_observasjoner):
         assert "Innsatsjustert sesongprofil" in str(_figurspesifikasjon)
 
     test_sesongprofil_mtm_004()
-    return (test_sesongprofil_mtm_004,)
+    return
 
 
 @app.cell(hide_code=True)
@@ -1755,23 +1693,6 @@ def dekningsmatrise_funksjonsvisning():
 
 
 @app.cell(hide_code=True)
-def maanedsgrunnlag_seksjon():
-    mo.md(r"""
-    ## Datagrunnlag gjennom året
-
-    Great Table-tabellen viser det **absolutte datagrunnlaget** i det aktive
-    utvalget, med én rad per kalendermåned. Den skiller mellom registreringsmengde,
-    tidsdekning og bredden i materialet.
-
-    `Individer` er summen av `Antall`. Databehandlingen er uendret: manglende
-    `individualCount` er allerede satt til 1 i den ferdig behandlede Parquet-filen.
-    Tallene beskriver dokumentasjon, ikke standardisert innsats, sann forekomst
-    eller biologisk fravær.
-    """)
-    return
-
-
-@app.cell(hide_code=True)
 def maanedsgrunnlag_konstanter_validering():
     DATAGRUNNLAG_MAANEDSNAVN = {
         1: "Jan",
@@ -2078,690 +1999,9 @@ def maanedsgrunnlag_funksjonsvisning():
 
 
 @app.cell(hide_code=True)
-def velg_art_for_innsatsjustert_maanedsprofil(arter_df, arter_df_lest_inn):
-    _artsvalg_rader = (
-        arter_df.filter(pl.col("Taksonomisk nivå") == "species")
-        .group_by(["Artens ID", "Art"])
-        .agg(
-            pl.col("Navn").drop_nulls().first().alias("Navn"),
-            pl.len().alias("Observasjoner"),
-        )
-        .sort(["Observasjoner", "Navn"], descending=[True, False])
-    )
-    mo.stop(
-        _artsvalg_rader.is_empty(),
-        mo.md("Ingen arter er tilgjengelige i det valgte tabellgrunnlaget for sammenligning av månedsprofiler."),
-    )
-
-    _artsvalg = {
-        f"{_rad['Navn'] or 'Uten norsk navn'} ({_rad['Art']}; ID {_rad['Artens ID']})": _rad["Artens ID"]
-        for _rad in _artsvalg_rader.iter_rows(named=True)
-    }
-    valgt_art_maanedsprofil = mo.ui.dropdown(
-        options=_artsvalg,
-        value=next(iter(_artsvalg)),
-        searchable=True,
-        allow_select_none=False,
-        label="Velg art fra artsstatistikken",
-        full_width=True,
-    )
-
-    _kontrollgrunnlag = arter_df.filter(
-        (pl.col("Taksonomisk nivå") == "species") & pl.col("Observert dato").is_not_null()
-    )
-    _periode_fra_kontroll = _kontrollgrunnlag.get_column("Observert dato").min()
-    _periode_til_kontroll = _kontrollgrunnlag.get_column("Observert dato").max()
-    _kommuner_kontroll = _kontrollgrunnlag.get_column("Kommune").drop_nulls().unique().to_list()
-    _kommuneuttrykk_kontroll = pl.col("Kommune").is_in(_kommuner_kontroll) if _kommuner_kontroll else pl.lit(True)
-    _innsats_per_maaned_kontroll = (
-        arter_df_lest_inn.filter(
-            (pl.col("Taksonomisk nivå") == "species")
-            & pl.col("Observert dato").is_between(
-                _periode_fra_kontroll,
-                _periode_til_kontroll,
-                closed="both",
-            )
-            & _kommuneuttrykk_kontroll
-        )
-        .group_by(pl.col("Observert dato").dt.month())
-        .len()
-    )
-    _maks_maanedsinnsats = int(_innsats_per_maaned_kontroll.get_column("len").max() or 100)
-    _innsatssteg = 10 if _maks_maanedsinnsats <= 500 else 50 if _maks_maanedsinnsats <= 5_000 else 100
-    _innsatsstopp = max(
-        _innsatssteg,
-        ((_maks_maanedsinnsats + _innsatssteg - 1) // _innsatssteg) * _innsatssteg,
-    )
-
-    valgt_maaned_forklaring = mo.ui.slider(
-        start=1,
-        stop=12,
-        step=1,
-        value=5,
-        show_value=True,
-        include_input=True,
-        label="Måned i regneeksempelet (1 = jan., 12 = des.)",
-        full_width=True,
-    )
-    minste_maanedsinnsats = mo.ui.slider(
-        start=0,
-        stop=_innsatsstopp,
-        step=_innsatssteg,
-        value=0,
-        show_value=True,
-        include_input=True,
-        debounce=True,
-        label="Minste antall artsregistreringer for å ta med en måned",
-        full_width=True,
-    )
-
-    mo.vstack(
-        [
-            mo.md(
-                r"""
-    ## Utforsk gammel og innsatsjustert månedsprofil
-
-    Velg først en art. Bruk deretter kontrollene til å undersøke **hvordan** og
-    **hvorfor** resultatet endrer seg. Ingen av kontrollene endrer originaldataene.
-    """
-            ),
-            valgt_art_maanedsprofil,
-            mo.hstack(
-                [valgt_maaned_forklaring, minste_maanedsinnsats],
-                widths="equal",
-                align="start",
-                wrap=True,
-            ),
-            mo.callout(
-                mo.md(
-                    "**Måned** styrer bare regneeksempelet. "
-                    "**Minste datamengde** er en sensitivitetskontroll: måneder "
-                    "under grensen skjules fra begge profilkurvene, men beholdes "
-                    "i detaljtabellen. Start med `0` for å bruke alle måneder."
-                ),
-                kind="info",
-                title="Slik bruker du kontrollene",
-            ),
-        ],
-        gap=1,
-    )
-    return (
-        minste_maanedsinnsats,
-        valgt_art_maanedsprofil,
-        valgt_maaned_forklaring,
-    )
-
-
-@app.cell(hide_code=True)
-def sammenlign_maanedsprofiler(
-    arter_df,
-    arter_df_lest_inn,
-    minste_maanedsinnsats,
-    valgt_art_maanedsprofil,
-    valgt_maaned_forklaring,
-):
-    mo.stop(
-        valgt_art_maanedsprofil.value is None,
-        mo.md("Velg en art for å lage sammenligningen."),
-    )
-
-    _maanedsnavn = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "Mai",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Okt",
-        "Nov",
-        "Des",
-    ]
-    _tabellgrunnlag = arter_df.filter(
-        (pl.col("Taksonomisk nivå") == "species") & pl.col("Observert dato").is_not_null()
-    )
-    mo.stop(
-        _tabellgrunnlag.is_empty(),
-        mo.md("Tabellgrunnlaget inneholder ingen artsobservasjoner med gyldig dato."),
-    )
-
-    _periode_fra = _tabellgrunnlag.get_column("Observert dato").min()
-    _periode_til = _tabellgrunnlag.get_column("Observert dato").max()
-    _kommuner = _tabellgrunnlag.get_column("Kommune").drop_nulls().unique().to_list()
-    _kommuneuttrykk = pl.col("Kommune").is_in(_kommuner) if _kommuner else pl.lit(True)
-    _innsatsgrunnlag = arter_df_lest_inn.filter(
-        (pl.col("Taksonomisk nivå") == "species")
-        & pl.col("Observert dato").is_between(
-            _periode_fra,
-            _periode_til,
-            closed="both",
-        )
-        & _kommuneuttrykk
-    )
-    _art_info = (
-        _tabellgrunnlag.filter(pl.col("Artens ID") == valgt_art_maanedsprofil.value)
-        .select("Navn", "Art")
-        .unique()
-        .row(0, named=True)
-    )
-
-    _maaneder = pl.DataFrame(
-        {
-            "Månedsnummer": list(range(1, 13)),
-            "Måned": _maanedsnavn,
-        }
-    )
-    _alle_arter_per_maaned = _innsatsgrunnlag.group_by(pl.col("Observert dato").dt.month().alias("Månedsnummer")).agg(
-        pl.len().alias("Alle artsobservasjoner")
-    )
-    _valgt_art_per_maaned = (
-        _tabellgrunnlag.filter(pl.col("Artens ID") == valgt_art_maanedsprofil.value)
-        .group_by(pl.col("Observert dato").dt.month().alias("Månedsnummer"))
-        .agg(pl.len().alias("Artsobservasjoner"))
-    )
-
-    _maanedsgrunnlag = (
-        _maaneder.join(
-            _alle_arter_per_maaned,
-            on="Månedsnummer",
-            how="left",
-        )
-        .join(
-            _valgt_art_per_maaned,
-            on="Månedsnummer",
-            how="left",
-        )
-        .with_columns(
-            pl.col("Alle artsobservasjoner").fill_null(0),
-            pl.col("Artsobservasjoner").fill_null(0),
-        )
-        .with_columns(
-            (
-                (pl.col("Alle artsobservasjoner") >= minste_maanedsinnsats.value)
-                & (pl.col("Alle artsobservasjoner") > 0)
-            ).alias("Brukes i profil"),
-            pl.when(pl.col("Alle artsobservasjoner") > 0)
-            .then(pl.col("Artsobservasjoner") / pl.col("Alle artsobservasjoner") * 1_000)
-            .otherwise(None)
-            .alias("Relativ frekvens per 1 000"),
-        )
-    )
-    _brukt_maanedsgrunnlag = _maanedsgrunnlag.filter(pl.col("Brukes i profil"))
-    _sum_artsobservasjoner_brukt = int(_brukt_maanedsgrunnlag.get_column("Artsobservasjoner").sum() or 0)
-    _sum_relative_frekvenser_brukt = float(_brukt_maanedsgrunnlag.get_column("Relativ frekvens per 1 000").sum() or 0.0)
-    _maanedssammenligning = _maanedsgrunnlag.with_columns(
-        pl.when(pl.col("Brukes i profil") & (_sum_artsobservasjoner_brukt > 0))
-        .then(pl.col("Artsobservasjoner") / _sum_artsobservasjoner_brukt * 100)
-        .otherwise(None)
-        .alias("Gammel profil (%)"),
-        pl.when(pl.col("Brukes i profil") & (_sum_relative_frekvenser_brukt > 0))
-        .then(pl.col("Relativ frekvens per 1 000") / _sum_relative_frekvenser_brukt * 100)
-        .otherwise(None)
-        .alias("Innsatsjustert profil (%)"),
-    )
-
-    _profilrader = _maanedssammenligning.filter(
-        pl.col("Gammel profil (%)").is_not_null() & pl.col("Innsatsjustert profil (%)").is_not_null()
-    )
-    _profil_kan_vises = _profilrader.height > 0
-    _antall_maaneder_brukt = _maanedssammenligning.filter(pl.col("Brukes i profil")).height
-    _antall_maaneder_under_terskel = 12 - _antall_maaneder_brukt
-
-    if _profil_kan_vises:
-        _profil_lang = _profilrader.select(
-            "Måned",
-            "Gammel profil (%)",
-            "Innsatsjustert profil (%)",
-        ).unpivot(
-            on=["Gammel profil (%)", "Innsatsjustert profil (%)"],
-            index="Måned",
-            variable_name="Metode",
-            value_name="Andel av profil (%)",
-        )
-        _profilfigur = px.line(
-            _profil_lang,
-            x="Måned",
-            y="Andel av profil (%)",
-            color="Metode",
-            line_dash="Metode",
-            symbol="Metode",
-            markers=True,
-            category_orders={"Måned": _maanedsnavn},
-            color_discrete_map={
-                "Gammel profil (%)": "#6B7280",
-                "Innsatsjustert profil (%)": "#2563EB",
-            },
-            line_dash_map={
-                "Gammel profil (%)": "dot",
-                "Innsatsjustert profil (%)": "solid",
-            },
-            symbol_map={
-                "Gammel profil (%)": "circle",
-                "Innsatsjustert profil (%)": "diamond",
-            },
-            title=(f"Gammel og innsatsjustert månedsprofil – {_art_info['Navn']} ({_art_info['Art']})"),
-        )
-        _profilfigur.update_layout(
-            legend_title_text="",
-            hovermode="x unified",
-            yaxis_title="Andel av månedsprofil (%)",
-            xaxis_title="Måned",
-        )
-        _profilfigur.add_hline(
-            y=100 / _antall_maaneder_brukt,
-            line_dash="dash",
-            line_color="#9CA3AF",
-            annotation_text="Jevnt fordelt profil",
-            annotation_position="top right",
-        )
-        _profilvisualisering = _profilfigur
-    else:
-        _profilvisualisering = mo.callout(
-            mo.md(
-                "Ingen profil kan beregnes med denne terskelen. Senk "
-                "**minste datamengde** til minst én måned med registreringer av "
-                "arten inngår."
-            ),
-            kind="danger",
-            title="Terskelen er for høy",
-        )
-
-    _innsatsvisning = _maanedssammenligning.with_columns(
-        pl.when(pl.col("Brukes i profil"))
-        .then(pl.lit("Brukes i profil"))
-        .otherwise(pl.lit("Under terskel"))
-        .alias("Datastatus")
-    )
-    _innsatsfigur = px.bar(
-        _innsatsvisning,
-        x="Måned",
-        y="Alle artsobservasjoner",
-        color="Datastatus",
-        category_orders={
-            "Måned": _maanedsnavn,
-            "Datastatus": ["Brukes i profil", "Under terskel"],
-        },
-        color_discrete_map={
-            "Brukes i profil": "#60A5FA",
-            "Under terskel": "#F59E0B",
-        },
-        title="Månedlig rapporteringsmengde som brukes som innsatsproxy",
-        labels={"Alle artsobservasjoner": "Alle artsregistreringer"},
-    )
-    _innsatsfigur.update_layout(
-        legend_title_text="",
-        xaxis_title="Måned",
-        yaxis_title="Alle artsregistreringer",
-    )
-    if minste_maanedsinnsats.value > 0:
-        _innsatsfigur.add_hline(
-            y=minste_maanedsinnsats.value,
-            line_dash="dash",
-            line_color="#B45309",
-            annotation_text="Valgt terskel",
-            annotation_position="top right",
-        )
-
-    if _profil_kan_vises:
-        _gammel_topp = _profilrader.sort(
-            "Gammel profil (%)",
-            descending=True,
-        ).row(0, named=True)
-        _justert_topp = _profilrader.sort(
-            "Innsatsjustert profil (%)",
-            descending=True,
-        ).row(0, named=True)
-        _maks_justering = float(
-            _profilrader.select((pl.col("Innsatsjustert profil (%)") - pl.col("Gammel profil (%)")).abs().max()).item()
-            or 0.0
-        )
-        if _gammel_topp["Måned"] != _justert_topp["Måned"]:
-            _hovedbudskap = mo.callout(
-                mo.md(
-                    f"Den største månedsandelen flytter seg fra "
-                    f"**{_gammel_topp['Måned']}** i råprofilen til "
-                    f"**{_justert_topp['Måned']}** etter justering. Det viser at "
-                    "månedlig rapporteringsmengde påvirker formen på råprofilen. "
-                    "Det beviser ikke at den justerte toppen er artens sanne "
-                    "biologiske topp."
-                ),
-                kind="info",
-                title="Toppen flytter seg etter justering",
-            )
-        else:
-            _hovedbudskap = mo.callout(
-                mo.md(
-                    f"Både råprofilen og den innsatsjusterte profilen har størst "
-                    f"månedsandel i **{_gammel_topp['Måned']}**. Formen kan likevel "
-                    f"være endret; største forskjell er "
-                    f"**{_maks_justering:.1f} prosentpoeng**."
-                ),
-                kind="success",
-                title="Samme toppmåned, men kontroller resten av kurven",
-            )
-    else:
-        _maks_justering = 0.0
-        _hovedbudskap = mo.callout(
-            mo.md("Terskelen etterlater ikke nok data til å sammenligne profilene."),
-            kind="danger",
-            title="Ingen sammenlignbar profil",
-        )
-
-    _valgt_maanedsrad = _maanedssammenligning.filter(pl.col("Månedsnummer") == valgt_maaned_forklaring.value).row(
-        0, named=True
-    )
-    _valgt_maanedsnavn = _valgt_maanedsrad["Måned"]
-    _valgt_artsobservasjoner = int(_valgt_maanedsrad["Artsobservasjoner"])
-    _valgt_maanedsinnsats = int(_valgt_maanedsrad["Alle artsobservasjoner"])
-    _valgt_relativ_frekvens = _valgt_maanedsrad["Relativ frekvens per 1 000"]
-    _valgt_gammel_profil = _valgt_maanedsrad["Gammel profil (%)"]
-    _valgt_justert_profil = _valgt_maanedsrad["Innsatsjustert profil (%)"]
-    _valgt_maaned_brukes = bool(_valgt_maanedsrad["Brukes i profil"])
-
-    if _valgt_maaned_brukes:
-        _maanedsstatus = mo.callout(
-            mo.md(
-                (
-                    f"{_valgt_maanedsnavn} har {_valgt_maanedsinnsats:,} "
-                    "artsregistreringer og er derfor med i begge profilene."
-                ).replace(",", " ")
-            ),
-            kind="success",
-            title="Måneden er over terskelen",
-        )
-        _normalisert_regnestykke = mo.md(
-            rf"""
-    ### Trinn 3: Sammenlign profilandelene
-
-    Den gamle metoden deler månedens artsregistreringer på alle registreringer av
-    arten i månedene som er med:
-
-    \[
-    100 \times \frac{{{_valgt_artsobservasjoner}}}
-    {{{_sum_artsobservasjoner_brukt}}}
-    = {_valgt_gammel_profil:.2f}\,\%
-    \]
-
-    Den nye metoden normaliserer de tolv relative frekvensene, slik at de månedene
-    som er med til sammen utgjør 100 %:
-
-    \[
-    100 \times \frac{{{_valgt_relativ_frekvens:.2f}}}
-    {{{_sum_relative_frekvenser_brukt:.2f}}}
-    = {_valgt_justert_profil:.2f}\,\%
-    \]
-
-    Forskjellen skyldes at den nye metoden først spør hvor stor andel arten utgjør
-    av **all rapportering i samme måned**, før månedsprofilen normaliseres.
-    """
-        )
-    else:
-        _maanedsstatus = mo.callout(
-            mo.md(
-                (
-                    f"{_valgt_maanedsnavn} har {_valgt_maanedsinnsats:,} "
-                    "artsregistreringer, som er under terskelen på "
-                    f"{minste_maanedsinnsats.value:,}. Råverdiene vises fortsatt, men "
-                    "måneden inngår ikke i de normaliserte profilene."
-                ).replace(",", " ")
-            ),
-            kind="warn",
-            title="Måneden er under terskelen",
-        )
-        _normalisert_regnestykke = mo.md(
-            "### Trinn 3: Profilandel\n\n"
-            "Profilandelen beregnes ikke for denne måneden med valgt terskel. "
-            "Senk terskelen for å se den inngå i begge kurvene."
-        )
-
-    _valgt_frekvenstekst = f"{_valgt_relativ_frekvens:.2f}" if _valgt_relativ_frekvens is not None else "Ikke beregnbar"
-    _regneeksempel = mo.vstack(
-        [
-            mo.md(
-                rf"""
-    ## Regn ut {_valgt_maanedsnavn} steg for steg
-
-    ### Trinn 1: Identifiser teller og nevner
-
-    - **Teller \(S_m\):** {_valgt_artsobservasjoner} registreringer av
-      {_art_info["Navn"]} i {_valgt_maanedsnavn}.
-    - **Nevner \(E_m\):** {_valgt_maanedsinnsats} registreringer av alle arter i
-      samme måned, periode og kommuner.
-
-    Nevneren er en **proxy for rapporteringsinnsats**. En måned med mange innsendte
-    artsregistreringer gir større mulighet for at også den valgte arten blir
-    registrert.
-
-    ### Trinn 2: Beregn relativ rapporteringsfrekvens
-
-    \[
-    R_m = 1000 \times \frac{{S_m}}{{E_m}}
-    = 1000 \times \frac{{{_valgt_artsobservasjoner}}}
-    {{{_valgt_maanedsinnsats}}}
-    = {_valgt_frekvenstekst}
-    \]
-
-    Dette leses som **{_valgt_frekvenstekst} registreringer av arten per 1 000
-    artsregistreringer** i {_valgt_maanedsnavn}. Det er en relativ
-    rapporteringsfrekvens, ikke et estimat på antall individer.
-    """
-            ),
-            _maanedsstatus,
-            _normalisert_regnestykke,
-        ],
-        gap=1,
-    )
-
-    _statistikkort = mo.hstack(
-        [
-            mo.stat(
-                value=f"{_tabellgrunnlag.filter(pl.col('Artens ID') == valgt_art_maanedsprofil.value).height:,}".replace(
-                    ",", " "
-                ),
-                label="Artsregistreringer",
-                caption="Tellergrunnlaget for gammel profil",
-                bordered=True,
-            ),
-            mo.stat(
-                value=f"{_innsatsgrunnlag.height:,}".replace(",", " "),
-                label="Alle artsregistreringer",
-                caption="Samlet innsatsproxy i perioden",
-                bordered=True,
-            ),
-            mo.stat(
-                value=f"{_antall_maaneder_brukt} av 12",
-                label="Måneder i kurvene",
-                caption=f"{_antall_maaneder_under_terskel} under valgt terskel",
-                bordered=True,
-            ),
-            mo.stat(
-                value=f"{_maks_justering:.1f} pp",
-                label="Største justering",
-                caption="Største absolutt forskjell mellom kurvene",
-                bordered=True,
-            ),
-        ],
-        widths="equal",
-        wrap=True,
-    )
-
-    _visningstabell = _innsatsvisning.select(
-        "Måned",
-        pl.col("Artsobservasjoner").alias("Artsobservasjoner (gammel)"),
-        pl.col("Alle artsobservasjoner").alias("Alle artsobservasjoner (innsats)"),
-        pl.col("Relativ frekvens per 1 000").round(2),
-        pl.col("Gammel profil (%)").round(2),
-        pl.col("Innsatsjustert profil (%)").round(2),
-        "Datastatus",
-    )
-    _detaljtabell = mo.ui.table(
-        _visningstabell,
-        pagination=False,
-        selection=None,
-        show_data_types=False,
-        show_column_summaries=False,
-        show_search=False,
-        show_download=True,
-        text_justify_columns={
-            "Artsobservasjoner (gammel)": "center",
-            "Alle artsobservasjoner (innsats)": "center",
-            "Relativ frekvens per 1 000": "center",
-            "Gammel profil (%)": "center",
-            "Innsatsjustert profil (%)": "center",
-        },
-        header_tooltip={
-            "Artsobservasjoner (gammel)": "Antall rader for valgt art i gjeldende tabellgrunnlag.",
-            "Alle artsobservasjoner (innsats)": "Alle artsrader i samme måned, periode og kommuner.",
-            "Relativ frekvens per 1 000": "Artsobservasjoner delt på alle artsobservasjoner, multiplisert med 1 000.",
-            "Gammel profil (%)": "Månedens andel av artens rå registreringer blant måneder over terskelen.",
-            "Innsatsjustert profil (%)": "Månedens andel etter justering for rapporteringsmengde.",
-            "Datastatus": "Viser om måneden inngår i profilkurvene med valgt terskel.",
-        },
-    )
-
-    _metodeforklaring = mo.accordion(
-        {
-            "Hvorfor kan rå månedstall villede?": mo.md(
-                r"""
-    Hvis flere personer rapporterer, eller rapporteringssystemet leverer flere
-    rader i én måned, øker sjansen for å få registreringer av alle arter. En topp i
-    råtall kan derfor skyldes både biologisk sesongmønster og høy
-    rapporteringsaktivitet. Den gamle profilen kan ikke skille disse mekanismene.
-    """
-            ),
-            "Hva gjør justeringen matematisk?": mo.md(
-                r"""
-    For måned \(m\) beregnes
-
-    \[
-    R_m = 1000 \times \frac{S_m}{E_m},
-    \]
-
-    hvor \(S_m\) er registreringer av valgt art og \(E_m\) er alle
-    artsregistreringer. \(R_m\) beholder en tolkbar skala: registreringer av arten
-    per 1 000 artsregistreringer. For å sammenligne **formen** med den gamle
-    nanoprofilen normaliseres deretter begge kurver til 100 %.
-    """
-            ),
-            "Hva betyr dataterskelen?": mo.md(
-                r"""
-    Terskelen er en **sensitivitetsanalyse**, ikke en p-verdi eller formell
-    kvalitetsgrense. Når du øker terskelen, fjernes måneder med lite
-    rapporteringsgrunnlag fra begge kurvene. Hvis konklusjonen endrer seg kraftig,
-    er månedsmønsteret følsomt for måneder med få data og bør beskrives med ekstra
-    forsiktighet.
-    """
-            ),
-            "Hva løser metoden ikke?": mo.md(
-                r"""
-    Metoden kjenner ikke antall observatørtimer, reiselengde, sjekklengde,
-    dekningsareal, vær eller reelle nullobservasjoner. Artsregistreringer er heller
-    ikke nødvendigvis uavhengige statistiske forsøk. Resultatet er derfor en
-    **innsatsjustert relativ rapporteringsfrekvens**, ikke abundans,
-    bestandstetthet, deteksjonssannsynlighet eller en kausal effekt.
-    """
-            ),
-            "Hva kreves for en sterkere publikasjonsanalyse?": mo.md(
-                r"""
-    En sterkere analyse trenger strukturerte observasjonsøkter eller komplette
-    sjekklister med både funn og ikke-funn, samt mål på varighet, område og
-    observatørinnsats. Da kan man modellere deteksjon og biologisk forekomst
-    separat, for eksempel med okkupasjonsmodeller eller modeller med en eksplisitt
-    innsatskomponent. Denne notebook-metoden er et transparent mellomtrinn for
-    opportunistiske forekomstdata.
-    """
-            ),
-        },
-        multiple=False,
-    )
-
-    _sammenligningsfane = mo.vstack(
-        [
-            mo.md(
-                f"""
-    ## Hva skjer med mønsteret?
-
-    Den **grå, prikkede kurven** er den gamle månedsprofilen. Den **blå, heltrukne
-    kurven** justerer først for hvor mange artsregistreringer som finnes i hver
-    måned. Med terskel `0` samsvarer den grå kurven med månedsfordelingen i
-    artsstatistikken. Hever du terskelen, sammenlignes begge metoder på de samme
-    månedene over terskelen.
-
-    Dataperiode: **{_periode_fra}–{_periode_til}**. Kommuner:
-    **{", ".join(sorted(_kommuner)) if _kommuner else "ikke avgrenset"}**.
-    """
-            ),
-            _statistikkort,
-            _hovedbudskap,
-            _profilvisualisering,
-            mo.callout(
-                mo.md(
-                    "Se først etter **om toppmåneden flytter seg**, og deretter "
-                    "etter måneder der avstanden mellom kurvene er stor. Bruk "
-                    "fanen *Regn på én måned* for å forklare en konkret forskjell."
-                ),
-                kind="neutral",
-                title="Slik leser du figuren",
-            ),
-        ],
-        gap=1,
-    )
-
-    _datagrunnlagsfane = mo.vstack(
-        [
-            mo.md(
-                r"""
-    ## Se nevneren før du tolker profilen
-
-    Søylene viser hvor mange artsregistreringer som ligger bak nevneren i hver
-    måned. En høy søyle betyr mer rapportering, ikke nødvendigvis flere fugler.
-    Oransje måneder er under valgt terskel. Tabellen under gjør alle mellomregningene
-    etterprøvbare og kan lastes ned.
-    """
-            ),
-            _innsatsfigur,
-            _detaljtabell,
-        ],
-        gap=1,
-    )
-
-    _metodefane = mo.vstack(
-        [
-            mo.callout(
-                mo.md(
-                    "Bruk betegnelsen **innsatsjustert relativ "
-                    "rapporteringsfrekvens**. Unngå å omtale dette som korrigert "
-                    "abundans eller sann forekomst."
-                ),
-                kind="warn",
-                title="Anbefalt språk i en publikasjon",
-            ),
-            _metodeforklaring,
-        ],
-        gap=1,
-    )
-
-    mo.ui.tabs(
-        {
-            "1 · Sammenlign profilene": _sammenligningsfane,
-            "2 · Regn på én måned": _regneeksempel,
-            "3 · Undersøk datagrunnlaget": _datagrunnlagsfane,
-            "4 · Metode og begrensninger": _metodefane,
-        },
-        value="1 · Sammenlign profilene",
-        label="Læringssti for innsatsjustert månedsprofil",
-    )
-    return
-
-
-@app.cell(hide_code=True)
 def velg_sesongprofil(arter_df):
     _artsvalg_rader = (
-        arter_df.filter(
-            (pl.col("Taksonomisk nivå") == "species") & pl.col("Observert dato").is_not_null()
-        )
+        arter_df.filter((pl.col("Taksonomisk nivå") == "species") & pl.col("Observert dato").is_not_null())
         .group_by(["Artens ID", "Art"])
         .agg(
             pl.col("Navn").drop_nulls().first().alias("Navn"),
@@ -2825,7 +2065,11 @@ def velg_sesongprofil(arter_df):
         ],
         gap=1,
     )
-    return valgt_art_sesongprofil, valgt_metrikk_sesongprofil, sesongprofil_vindu
+    return (
+        sesongprofil_vindu,
+        valgt_art_sesongprofil,
+        valgt_metrikk_sesongprofil,
+    )
 
 
 @app.cell(hide_code=True)
@@ -2834,7 +2078,6 @@ def vis_sesongprofil(
     arter_df_lest_inn,
     beregn_sesongprofil_individer,
     beregn_sesongprofil_observasjoner,
-    lag_sesongprofilfigur,
     sesongprofil_vindu,
     valgt_art_sesongprofil,
     valgt_metrikk_sesongprofil,
