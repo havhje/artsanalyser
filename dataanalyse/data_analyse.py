@@ -7,6 +7,7 @@ with app.setup(hide_code=True):
     import inspect
     import textwrap
     from datetime import date
+    from html import escape
 
     import altair as alt
     import colorcet as cc
@@ -102,7 +103,7 @@ def artsstatistikk_dokumentasjon(
     | ARTSTABELL-MTM-005 | Tom input med riktig schema | Tom output med fast kolonnerekkefølge og riktige typer |
     | ARTSTABELL-MTM-006 | Manglende obligatorisk kolonne | Tidlig feil som nevner kolonnen |
     | ARTSTABELL-MTM-007 | Feil datatype eller ukjent kategori | Tidlig og forklarende feil |
-    | ARTSTABELL-MTM-008 | Great Tables-rendering | Tabell, nanoplot, tittel og fotnoter renderes |
+    | ARTSTABELL-MTM-008 | Great Tables-rendering | Verdi M1941 vises først uten tom ekstrakolonne, fargemerker er lesbare, og tabell, nanoplot, tittel og fotnoter renderes |
 
     ### Testgrunnlag
     """),
@@ -445,7 +446,6 @@ def _(
 @app.cell(hide_code=True)
 def _(
     ARTSSTATISTIKK_KATEGORIFARGER,
-    ARTSSTATISTIKK_KATEGORI_REKKEFOELGE,
     ARTSSTATISTIKK_M1941_FARGER,
     ARTSSTATISTIKK_OUTPUTKOLONNER,
 ):
@@ -459,10 +459,34 @@ def _(
         antall_observasjoner = int(artsstatistikk_df["Observasjoner"].sum() or 0)
         antall_individer = int(artsstatistikk_df["Individer"].sum() or 0)
 
-        kategori_domene = list(ARTSSTATISTIKK_KATEGORI_REKKEFOELGE)
-        kategori_palett = [ARTSSTATISTIKK_KATEGORIFARGER[kategori] for kategori in kategori_domene]
-        m1941_domene = list(ARTSSTATISTIKK_M1941_FARGER)
-        m1941_palett = [ARTSSTATISTIKK_M1941_FARGER[verdi] for verdi in m1941_domene]
+        def velg_tekstfarge(bakgrunn: str) -> str:
+            """Velg svart eller hvit tekst med best kontrast mot bakgrunnen."""
+            heks = bakgrunn.removeprefix("#")
+            rgb = [int(heks[indeks : indeks + 2], 16) / 255 for indeks in (0, 2, 4)]
+            lineær_rgb = [
+                kanal / 12.92 if kanal <= 0.04045 else ((kanal + 0.055) / 1.055) ** 2.4
+                for kanal in rgb
+            ]
+            luminans = (
+                0.2126 * lineær_rgb[0] + 0.7152 * lineær_rgb[1] + 0.0722 * lineær_rgb[2]
+            )
+            return "#FFFFFF" if luminans < 0.179 else "#172033"
+
+        def lag_fargemerke(
+            verdi: str, fargekart: dict[str, str], *, kompakt: bool = False
+        ) -> str:
+            """Vis en tabellverdi som et avrundet merke med offisiell farge."""
+            bakgrunn = fargekart.get(verdi, "#D9D9D9")
+            tekstfarge = velg_tekstfarge(bakgrunn)
+            minstebredde = "min-width:2.75em;" if kompakt else ""
+            return (
+                '<span style="display:inline-flex;align-items:center;justify-content:center;'
+                f"{minstebredde}box-sizing:border-box;padding:0.24em 0.58em;"
+                f"background-color:{bakgrunn};color:{tekstfarge};"
+                "border:1px solid rgba(15,23,42,0.16);border-radius:999px;"
+                "box-shadow:0 1px 2px rgba(15,23,42,0.10);font-weight:600;"
+                f'line-height:1.2;white-space:nowrap;">{escape(str(verdi))}</span>'
+            )
 
         tabell = (
             gt.GT(artsstatistikk_df, id="artsstatistikk", locale="nb")
@@ -492,6 +516,8 @@ def _(
             .cols_align(
                 align="center",
                 columns=[
+                    "Verdi M1941",
+                    "Kategori",
                     "Observasjoner",
                     "Individer",
                     "Gj.snitt individer",
@@ -526,21 +552,19 @@ def _(
                 ),
             )
             .sub_missing(missing_text="–")
-            .data_color(
-                columns="Kategori",
-                domain=kategori_domene,
-                palette=kategori_palett,
-                autocolor_text=True,
+            .text_transform(
+                locations=gt.loc.body(columns="Verdi M1941"),
+                fn=lambda verdi: lag_fargemerke(verdi, ARTSSTATISTIKK_M1941_FARGER),
             )
-            .data_color(
-                columns="Verdi M1941",
-                domain=m1941_domene,
-                palette=m1941_palett,
-                autocolor_text=True,
+            .text_transform(
+                locations=gt.loc.body(columns="Kategori"),
+                fn=lambda verdi: lag_fargemerke(
+                    verdi, ARTSSTATISTIKK_KATEGORIFARGER, kompakt=True
+                ),
             )
             .tab_spanner(
                 label="Art og forvaltning",
-                columns=["Kategori", "Verdi M1941", "Forvaltningsinteresse", "Navn"],
+                columns=["Verdi M1941", "Kategori", "Forvaltningsinteresse", "Navn"],
             )
             .tab_spanner(
                 label="Omfang",
@@ -582,7 +606,7 @@ def _(
             .cols_width(
                 cases={
                     "Kategori": "70px",
-                    "Verdi M1941": "105px",
+                    "Verdi M1941": "120px",
                     "Forvaltningsinteresse": "190px",
                     "Navn": "180px",
                     "Observasjoner": "85px",
@@ -614,19 +638,6 @@ def _(
                 footnotes_marks="letters",
             )
         )
-
-        if artsstatistikk_df.height > 0:
-            tabell = tabell.grand_summary_rows(
-                fns={
-                    "Totalt": pl.col(
-                        "Observasjoner",
-                        "Individer",
-                        "Reproduksjon",
-                        "Mulig reproduksjon",
-                    ).sum()
-                },
-                fmt=lambda verdier: gt.vals.fmt_integer(verdier, locale="nb"),
-            )
 
         return tabell
 
@@ -889,6 +900,14 @@ def _(
         assert isinstance(tabell, gt.GT)
         assert "Artsstatistikk for valgte observasjoner" in html
         assert "Månedsprofil" in html
+        assert html.index(">Verdi M1941<") < html.index(">Kategori<")
+        assert 'gt_stub">&nbsp;</th>' not in html, (
+            "Tabellen skal ikke ha en tom ekstrakolonne"
+        )
+        assert "border-radius:999px" in html, (
+            "Verdi og kategori skal renderes som fargemerker"
+        )
+        assert "Noe verdi</span>" in html, "Hele verditeksten skal finnes i fargemerket"
         assert "<svg" in html, "Månedsprofilen skal renderes som nanoplot"
         assert "reproductive" in html
 
