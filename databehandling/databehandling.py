@@ -3219,7 +3219,7 @@ def definer_les_data_og_kjor_alle_funksjoner(
 
         # Bruker DuckDB direkte for å lese CSV — unngår polars sin ragged-lines feil
         with console.status("[bold blue]Leser CSV-fil med DuckDB..."):
-            input_df = duckdb.sql(f"SELECT * FROM read_csv('{input_fil_sti}')").pl()
+            input_df = duckdb.sql(f"SELECT * FROM read_csv('{input_fil_sti}', sample_size=-1)").pl()
         validate_artskart_input_contract(input_df)
 
         with console.status("[bold blue]Filtrerer observasjoner på år..."):
