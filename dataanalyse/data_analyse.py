@@ -140,8 +140,8 @@ def _():
 
     ARTSSTATISTIKK_OUTPUTKOLONNER = [
         "Artens ID",
-        "Kategori",
         "Verdi M1941",
+        "Kategori",
         "Forvaltningsinteresse",
         "Navn",
         "Art",
@@ -215,6 +215,19 @@ def _():
         )
     }
 
+    ARTSSTATISTIKK_M1941_REKKEFOELGE = {
+        verdi: indeks
+        for indeks, verdi in enumerate(
+            [
+                "Svært stor verdi",
+                "Stor verdi",
+                "Middels verdi",
+                "Noe verdi",
+                "Ingen",
+            ]
+        )
+    }
+
     ARTSSTATISTIKK_KATEGORIFARGER = {
         "RE": "#000000",
         "CR": "#D81E05",
@@ -245,6 +258,7 @@ def _():
         ARTSSTATISTIKK_KATEGORIFARGER,
         ARTSSTATISTIKK_KATEGORI_REKKEFOELGE,
         ARTSSTATISTIKK_M1941_FARGER,
+        ARTSSTATISTIKK_M1941_REKKEFOELGE,
         ARTSSTATISTIKK_MAANEDSNAVN,
         ARTSSTATISTIKK_METADATAKOLONNER,
         ARTSSTATISTIKK_OUTPUTKOLONNER,
@@ -332,6 +346,7 @@ def _(
 @app.cell(hide_code=True)
 def _(
     ARTSSTATISTIKK_KATEGORI_REKKEFOELGE,
+    ARTSSTATISTIKK_M1941_REKKEFOELGE,
     ARTSSTATISTIKK_MAANEDSNAVN,
     ARTSSTATISTIKK_OUTPUTKOLONNER,
     valider_artsstatistikk_input,
@@ -401,16 +416,24 @@ def _(
                 ]
             )
             .with_columns(
-                pl.col("Kategori")
-                .replace_strict(
-                    ARTSSTATISTIKK_KATEGORI_REKKEFOELGE,
-                    default=999,
-                )
-                .alias("__kategori_sortering")
+                [
+                    pl.col("Verdi M1941")
+                    .replace_strict(
+                        ARTSSTATISTIKK_M1941_REKKEFOELGE,
+                        default=999,
+                    )
+                    .alias("__verdi_sortering"),
+                    pl.col("Kategori")
+                    .replace_strict(
+                        ARTSSTATISTIKK_KATEGORI_REKKEFOELGE,
+                        default=999,
+                    )
+                    .alias("__kategori_sortering"),
+                ]
             )
             .sort(
-                ["__kategori_sortering", "Observasjoner"],
-                descending=[False, True],
+                ["__verdi_sortering", "__kategori_sortering", "Observasjoner"],
+                descending=[False, False, True],
                 maintain_order=True,
             )
             .select(ARTSSTATISTIKK_OUTPUTKOLONNER)
@@ -720,22 +743,53 @@ def _(lag_artsstatistikk, lag_artsstatistikk_testinput):
     def test_artsstatistikk_mtm_003():
         test_df = lag_artsstatistikk_testinput(
             [
-                {"Artens ID": 1, "Art": "lc-liten", "Kategori": "LC"},
-                {"Artens ID": 2, "Art": "cr-liten", "Kategori": "CR"},
-                {"Artens ID": 3, "Art": "hi-liten", "Kategori": "HI"},
-                {"Artens ID": 4, "Art": "ukjent-liten", "Kategori": "Unknown"},
-                {"Artens ID": 5, "Art": "lc-stor", "Kategori": "LC"},
-                {"Artens ID": 5, "Art": "lc-stor", "Kategori": "LC"},
+                {
+                    "Artens ID": 1,
+                    "Art": "middels-cr",
+                    "Kategori": "CR",
+                    "Verdi M1941": "Middels verdi",
+                },
+                {
+                    "Artens ID": 2,
+                    "Art": "svært-lc",
+                    "Kategori": "LC",
+                    "Verdi M1941": "Svært stor verdi",
+                },
+                {
+                    "Artens ID": 3,
+                    "Art": "stor-lc",
+                    "Kategori": "LC",
+                    "Verdi M1941": "Stor verdi",
+                },
+                {
+                    "Artens ID": 4,
+                    "Art": "stor-cr-liten",
+                    "Kategori": "CR",
+                    "Verdi M1941": "Stor verdi",
+                },
+                {
+                    "Artens ID": 5,
+                    "Art": "stor-cr-stor",
+                    "Kategori": "CR",
+                    "Verdi M1941": "Stor verdi",
+                },
+                {
+                    "Artens ID": 5,
+                    "Art": "stor-cr-stor",
+                    "Kategori": "CR",
+                    "Verdi M1941": "Stor verdi",
+                },
             ]
         )
         result = lag_artsstatistikk(test_df)
 
+        assert result.columns[:3] == ["Artens ID", "Verdi M1941", "Kategori"]
         assert result["Art"].to_list() == [
-            "cr-liten",
-            "lc-stor",
-            "lc-liten",
-            "hi-liten",
-            "ukjent-liten",
+            "svært-lc",
+            "stor-cr-stor",
+            "stor-cr-liten",
+            "stor-lc",
+            "middels-cr",
         ]
 
     test_artsstatistikk_mtm_003()
