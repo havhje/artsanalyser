@@ -32,10 +32,87 @@ def _():
 
 
 @app.cell(hide_code=True)
-def _():
-    mo.md(r"""
-    ### Funksjons og tester GT-artstabell
-    """)
+def artsstatistikk_dokumentasjon(
+    artsstatistikk_forventede_kolonner,
+    hent_påkrevde_artsstatistikk_kolonner,
+    lag_artsstatistikk,
+    lag_artsstatistikk_tabell,
+    lag_artsstatistikk_testinput,
+    lag_tom_artsstatistikk_testinput,
+    test_artsstatistikk_mtm_001,
+    test_artsstatistikk_mtm_002,
+    test_artsstatistikk_mtm_003,
+    test_artsstatistikk_mtm_004,
+    test_artsstatistikk_mtm_005,
+    test_artsstatistikk_mtm_006,
+    test_artsstatistikk_mtm_007,
+    test_artsstatistikk_mtm_008,
+    valider_artsstatistikk_input,
+):
+    def _vis_kildekode(_funksjon):
+        _kildekode = textwrap.dedent(inspect.getsource(_funksjon)).strip()
+        return mo.md(f"#### `{_funksjon.__name__}`\n\n```python\n{_kildekode}\n```")
+
+    _funksjoner = [
+        hent_påkrevde_artsstatistikk_kolonner,
+        valider_artsstatistikk_input,
+        lag_artsstatistikk,
+        lag_artsstatistikk_tabell,
+    ]
+    _testhjelpere = [
+        lag_artsstatistikk_testinput,
+        lag_tom_artsstatistikk_testinput,
+        artsstatistikk_forventede_kolonner,
+    ]
+    _tester = [
+        test_artsstatistikk_mtm_001,
+        test_artsstatistikk_mtm_002,
+        test_artsstatistikk_mtm_003,
+        test_artsstatistikk_mtm_004,
+        test_artsstatistikk_mtm_005,
+        test_artsstatistikk_mtm_006,
+        test_artsstatistikk_mtm_007,
+        test_artsstatistikk_mtm_008,
+    ]
+    _innhold = mo.vstack(
+        [
+            mo.md(r"""
+    ### Funksjonsstruktur
+
+    1. `hent_påkrevde_artsstatistikk_kolonner` beskriver inputkontrakten.
+    2. `valider_artsstatistikk_input` validerer kolonner, typer, kategorier og metadata.
+    3. `lag_artsstatistikk` aggregerer observasjoner til én rad per takson.
+    4. `lag_artsstatistikk_tabell` formaterer resultatet som en Great Table.
+
+    ### Funksjoner
+    """),
+            *[_vis_kildekode(_funksjon) for _funksjon in _funksjoner],
+            mo.md(r"""
+    ### Testbeskrivelse og testmatrise
+
+    Testene kjøres reaktivt og dekker inputkontrakt, aggregering, sortering,
+    rendering og nanoplot.
+
+    | ID | Scenario | Forventet resultat |
+    |---|---|---|
+    | ARTSTABELL-MTM-001 | To observasjoner av samme art | Korrekte summer, gjennomsnitt, tidsrom, måneder og aktiviteter |
+    | ARTSTABELL-MTM-002 | To taksa med samme norske navn | Taksa holdes atskilt med `Artens ID` og `Art` |
+    | ARTSTABELL-MTM-003 | Blandet kategori og observasjonsmengde | Full kategoriorden og flest observasjoner først innen kategori |
+    | ARTSTABELL-MTM-004 | Motstridende artsmetadata | Tydelig `ValueError` i stedet for vilkårlig `.first()` |
+    | ARTSTABELL-MTM-005 | Tom input med riktig schema | Tom output med fast kolonnerekkefølge og riktige typer |
+    | ARTSTABELL-MTM-006 | Manglende obligatorisk kolonne | Tidlig feil som nevner kolonnen |
+    | ARTSTABELL-MTM-007 | Feil datatype eller ukjent kategori | Tidlig og forklarende feil |
+    | ARTSTABELL-MTM-008 | Great Tables-rendering | Tabell, nanoplot, tittel og fotnoter renderes |
+
+    ### Testgrunnlag
+    """),
+            *[_vis_kildekode(_funksjon) for _funksjon in _testhjelpere],
+            mo.md("### Tester"),
+            *[_vis_kildekode(_funksjon) for _funksjon in _tester],
+        ],
+        gap=1,
+    )
+    mo.accordion({"Artsstatistikk – funksjoner og tester": _innhold})
     return
 
 
@@ -534,34 +611,6 @@ def _(
 
 
 @app.cell(hide_code=True)
-def _(
-    hent_påkrevde_artsstatistikk_kolonner,
-    lag_artsstatistikk,
-    lag_artsstatistikk_tabell,
-    valider_artsstatistikk_input,
-):
-    def _vis_kildekode(_funksjon):
-        _kildekode = textwrap.dedent(inspect.getsource(_funksjon)).strip()
-        return mo.md(f"#### `{_funksjon.__name__}`\n\n```python\n{_kildekode}\n```")
-
-    _funksjonsobjekter = [
-        hent_påkrevde_artsstatistikk_kolonner,
-        valider_artsstatistikk_input,
-        lag_artsstatistikk,
-        lag_artsstatistikk_tabell,
-    ]
-    _funksjonsinnhold = mo.vstack(
-        [
-            mo.md("Funksjonene under utgjør den validerte kjeden fra observasjoner til Great Tables-visning."),
-            *[_vis_kildekode(_funksjon) for _funksjon in _funksjonsobjekter],
-        ]
-    )
-    funksjonsseksjon = mo.accordion({"Funksjoner for artsstatistikken": _funksjonsinnhold})
-    funksjonsseksjon
-    return
-
-
-@app.cell(hide_code=True)
 def _(ARTSSTATISTIKK_OUTPUTKOLONNER, ARTSSTATISTIKK_TEKSTKOLONNER):
     def lag_artsstatistikk_testinput(
         rad_overrides: list[dict[str, object]] | None = None,
@@ -794,59 +843,57 @@ def _(
 
 
 @app.cell(hide_code=True)
-def _(
-    artsstatistikk_forventede_kolonner,
-    lag_artsstatistikk_testinput,
-    lag_tom_artsstatistikk_testinput,
-    test_artsstatistikk_mtm_001,
-    test_artsstatistikk_mtm_002,
-    test_artsstatistikk_mtm_003,
-    test_artsstatistikk_mtm_004,
-    test_artsstatistikk_mtm_005,
-    test_artsstatistikk_mtm_006,
-    test_artsstatistikk_mtm_007,
-    test_artsstatistikk_mtm_008,
+def sesongprofil_dokumentasjon(
+    sesongprofil_funksjoner,
+    test_sesongprofil_mtm_001,
+    test_sesongprofil_mtm_002,
+    test_sesongprofil_mtm_003,
+    test_sesongprofil_mtm_004,
 ):
-    def _vis_testkode(_funksjon):
+    def _vis_kildekode(_funksjon):
         _kildekode = textwrap.dedent(inspect.getsource(_funksjon)).strip()
         return mo.md(f"#### `{_funksjon.__name__}`\n\n```python\n{_kildekode}\n```")
 
-    _testmatrise = mo.md(r"""
-    ### Testmatrise
+    _tester = [
+        test_sesongprofil_mtm_001,
+        test_sesongprofil_mtm_002,
+        test_sesongprofil_mtm_003,
+        test_sesongprofil_mtm_004,
+    ]
+    _innhold = mo.vstack(
+        [
+            mo.md(r"""
+    ### Funksjonsstruktur
+
+    1. `_valider_sesongprofilgrunnlag` validerer tabellgrunnlag, innsatsgrunnlag og vindu.
+    2. `_beregn_sesongprofil` folder alle år til ett kalenderår og beregner rullerende profiler.
+    3. `beregn_sesongprofil_observasjoner` og `beregn_sesongprofil_individer` velger metrikk.
+    4. `lag_sesongprofilfigur` bygger rå og innsatsjustert profil som to Altair-paneler.
+
+    ### Funksjoner
+    """),
+            *[_vis_kildekode(_funksjon) for _funksjon in sesongprofil_funksjoner],
+            _vis_kildekode(lag_sesongprofilfigur),
+            mo.md(r"""
+    ### Testbeskrivelse og testmatrise
+
+    Testene kjøres reaktivt og kontrollerer begge metrikkene, sirkulære datovinduer
+    og figurstrukturen.
 
     | ID | Scenario | Forventet resultat |
     |---|---|---|
-    | ARTSTABELL-MTM-001 | To observasjoner av samme art | Korrekte summer, gjennomsnitt, tidsrom, måneder og aktiviteter |
-    | ARTSTABELL-MTM-002 | To taksa med samme norske navn | Taksa holdes atskilt med `Artens ID` og `Art` |
-    | ARTSTABELL-MTM-003 | Blandet kategori og observasjonsmengde | Full kategoriorden og flest observasjoner først innen kategori |
-    | ARTSTABELL-MTM-004 | Motstridende artsmetadata | Tydelig `ValueError` i stedet for vilkårlig `.first()` |
-    | ARTSTABELL-MTM-005 | Tom input med riktig schema | Tom output med fast kolonnerekkefølge og riktige typer |
-    | ARTSTABELL-MTM-006 | Manglende obligatorisk kolonne | Tidlig feil som nevner kolonnen |
-    | ARTSTABELL-MTM-007 | Feil datatype eller ukjent kategori | Tidlig og forklarende feil |
-    | ARTSTABELL-MTM-008 | Great Tables-rendering | Tabell, nanoplot, tittel og fotnoter renderes |
-    """)
-    _testfunksjoner = [
-        lag_artsstatistikk_testinput,
-        lag_tom_artsstatistikk_testinput,
-        artsstatistikk_forventede_kolonner,
-        test_artsstatistikk_mtm_001,
-        test_artsstatistikk_mtm_002,
-        test_artsstatistikk_mtm_003,
-        test_artsstatistikk_mtm_004,
-        test_artsstatistikk_mtm_005,
-        test_artsstatistikk_mtm_006,
-        test_artsstatistikk_mtm_007,
-        test_artsstatistikk_mtm_008,
-    ]
-    _testinnhold = mo.vstack(
-        [
-            mo.md("Testene kjøres reaktivt og dekker inputkontrakt, aggregering, rendering og nanoplot."),
-            _testmatrise,
-            *[_vis_testkode(_funksjon) for _funksjon in _testfunksjoner],
-        ]
+    | SESONGPROFIL-MTM-001 | Observasjoner med éndagsvindu | Korrekte rå og innsatsjusterte observasjonsverdier |
+    | SESONGPROFIL-MTM-002 | Individer med éndagsvindu | Individtall brukes som råverdi og justeres mot rapporteringsinnsats |
+    | SESONGPROFIL-MTM-003 | Tredagersvindu over årsskiftet | Desember og januar kobles i et sirkulært vindu |
+    | SESONGPROFIL-MTM-004 | Altair-rendering | Figuren inneholder rå og innsatsjustert panel |
+
+    ### Tester
+    """),
+            *[_vis_kildekode(_funksjon) for _funksjon in _tester],
+        ],
+        gap=1,
     )
-    testseksjon = mo.accordion({"Tester og testmatrise": _testinnhold})
-    testseksjon
+    mo.accordion({"Sesongprofil – funksjoner og tester": _innhold})
     return
 
 
@@ -906,9 +953,9 @@ def _():
             krever_antall=verdikolonne is not None,
         )
 
-        _tabell = tabellgrunnlag.with_columns(
-            pl.col("Observert dato").cast(pl.Date).alias("__dato")
-        ).filter(pl.col("__dato").is_not_null())
+        _tabell = tabellgrunnlag.with_columns(pl.col("Observert dato").cast(pl.Date).alias("__dato")).filter(
+            pl.col("__dato").is_not_null()
+        )
         if _tabell.is_empty():
             raise ValueError("Tabellgrunnlaget inneholder ingen gyldige observasjonsdatoer")
 
@@ -925,14 +972,10 @@ def _():
         )
 
         _verdiuttrykk = (
-            pl.len().cast(pl.Float64)
-            if verdikolonne is None
-            else pl.col(verdikolonne).sum().cast(pl.Float64)
+            pl.len().cast(pl.Float64) if verdikolonne is None else pl.col(verdikolonne).sum().cast(pl.Float64)
         )
         _valgt_per_dato = _valgt_art.group_by("__dato").agg(_verdiuttrykk.alias("__valgt_verdi"))
-        _innsats_per_dato = _innsats.group_by("__dato").agg(
-            pl.len().cast(pl.Float64).alias("__innsats")
-        )
+        _innsats_per_dato = _innsats.group_by("__dato").agg(pl.len().cast(pl.Float64).alias("__innsats"))
         _kalender = pl.DataFrame(
             {
                 "__dato": pl.date_range(
@@ -974,16 +1017,11 @@ def _():
         if _hoeyre:
             _utvidede_deler.append(_sesonggrunnlag.head(_hoeyre))
         _utvidet = pl.concat(_utvidede_deler)
-        _rullerende = (
-            _utvidet.select(
-                pl.col("__verdi_sum").rolling_sum(window_size=_vindu).alias("Verdi i vindu"),
-                pl.col("__innsats_sum")
-                .rolling_sum(window_size=_vindu)
-                .alias("Alle artsobservasjoner i vindu"),
-                pl.col("__datodager").rolling_sum(window_size=_vindu).alias("Datodager i vindu"),
-            )
-            .slice(_vindu - 1, _antall_sesongdager)
-        )
+        _rullerende = _utvidet.select(
+            pl.col("__verdi_sum").rolling_sum(window_size=_vindu).alias("Verdi i vindu"),
+            pl.col("__innsats_sum").rolling_sum(window_size=_vindu).alias("Alle artsobservasjoner i vindu"),
+            pl.col("__datodager").rolling_sum(window_size=_vindu).alias("Datodager i vindu"),
+        ).slice(_vindu - 1, _antall_sesongdager)
         _maanedsnavn = {
             1: "jan.",
             2: "feb.",
@@ -1014,9 +1052,7 @@ def _():
                     [
                         pl.col("Sesongdato").dt.day().cast(pl.String),
                         pl.lit(". "),
-                        pl.col("Sesongdato")
-                        .dt.month()
-                        .replace_strict(_maanedsnavn, return_dtype=pl.String),
+                        pl.col("Sesongdato").dt.month().replace_strict(_maanedsnavn, return_dtype=pl.String),
                     ]
                 ).alias("Dato"),
                 pl.lit(metrikk).alias("Metrikk"),
@@ -1076,7 +1112,17 @@ def _():
             verdikolonne="Antall",
         )
 
-    return beregn_sesongprofil_individer, beregn_sesongprofil_observasjoner
+    sesongprofil_funksjoner = [
+        _valider_sesongprofilgrunnlag,
+        _beregn_sesongprofil,
+        beregn_sesongprofil_observasjoner,
+        beregn_sesongprofil_individer,
+    ]
+    return (
+        beregn_sesongprofil_individer,
+        beregn_sesongprofil_observasjoner,
+        sesongprofil_funksjoner,
+    )
 
 
 @app.function(hide_code=True)
@@ -1322,7 +1368,11 @@ def _(beregn_sesongprofil_individer, beregn_sesongprofil_observasjoner):
     test_sesongprofil_mtm_001()
     test_sesongprofil_mtm_002()
     test_sesongprofil_mtm_003()
-    return
+    return (
+        test_sesongprofil_mtm_001,
+        test_sesongprofil_mtm_002,
+        test_sesongprofil_mtm_003,
+    )
 
 
 @app.cell(hide_code=True)
@@ -1344,7 +1394,7 @@ def _(beregn_sesongprofil_observasjoner):
         assert "Innsatsjustert sesongprofil" in str(_figurspesifikasjon)
 
     test_sesongprofil_mtm_004()
-    return
+    return (test_sesongprofil_mtm_004,)
 
 
 @app.cell(hide_code=True)
@@ -1357,7 +1407,7 @@ def _(valgt_fil):
     file_info = valgt_fil.value[0]
     arter_df_lest_inn = pl.read_parquet(file_info.path)
     artsdata_df = mo.ui.table(arter_df_lest_inn, page_size=20)
-    return arter_df_lest_inn, artsdata_df
+    return (artsdata_df,)
 
 
 @app.cell(hide_code=True)
@@ -1367,18 +1417,59 @@ def _(artsdata_df):
 
 
 @app.cell(hide_code=True)
-def dekningsmatrise_seksjon():
-    mo.md(r"""
-    ## Datadekning per år og måned
+def dekningsmatrise_funksjonsvisning(
+    lag_dekningsmatrise,
+    lag_dekningsmatrise_testinput,
+    lag_dekningsmatrisefigur,
+    test_dekningsmatrise_mtm_001,
+    test_dekningsmatrise_mtm_002,
+    valider_dekningsmatrise_input,
+):
+    def _vis_kildekode(_funksjon):
+        _kildekode = textwrap.dedent(inspect.getsource(_funksjon)).strip()
+        return mo.md(f"#### `{_funksjon.__name__}`\n\n```python\n{_kildekode}\n```")
 
-    Matrisen viser det **absolutte datagrunnlaget** i det aktive utvalget. Hver
-    rute er én kalendermåned i ett år. Grå ruter betyr at utvalget ikke inneholder
-    registreringer i perioden; de skal ikke tolkes som biologisk fravær.
+    _funksjoner = [
+        valider_dekningsmatrise_input,
+        lag_dekningsmatrise,
+        lag_dekningsmatrisefigur,
+    ]
+    _testhjelpere = [lag_dekningsmatrise_testinput]
+    _tester = [
+        test_dekningsmatrise_mtm_001,
+        test_dekningsmatrise_mtm_002,
+    ]
+    _innhold = mo.vstack(
+        [
+            mo.md(r"""
+    ### Funksjonsstruktur
 
-    Velg om fargen skal vise registreringer, individer, aktive datoer, arter,
-    observatører eller lokaliteter. Månedsnavnene står øverst for å gjøre
-    år–måned-matrisen enklere å lese sammen med Great Table-tabellen under.
-    """)
+    1. `valider_dekningsmatrise_input` validerer inputkontrakten.
+    2. `lag_dekningsmatrise` lager et komplett år–måned-rutenett med absolutte datamål.
+    3. `lag_dekningsmatrisefigur` bygger Altair-matrisen med månedsnavn på øvre akse.
+
+    ### Funksjoner
+    """),
+            *[_vis_kildekode(_funksjon) for _funksjon in _funksjoner],
+            mo.md(r"""
+    ### Testbeskrivelse og testmatrise
+
+    Testene kjøres reaktivt og kontrollerer både aggregeringen og figurens struktur.
+
+    | ID | Scenario | Forventet resultat |
+    |---|---|---|
+    | DEKNINGSMATRISE-MTM-001 | Data fra flere år og måneder | Korrekte summer, unike verdier og tomme ruter |
+    | DEKNINGSMATRISE-MTM-002 | Rendering av matrisen | Rektangelmerker og månedsakse øverst |
+
+    ### Testgrunnlag
+    """),
+            *[_vis_kildekode(_funksjon) for _funksjon in _testhjelpere],
+            mo.md("### Tester"),
+            *[_vis_kildekode(_funksjon) for _funksjon in _tester],
+        ],
+        gap=1,
+    )
+    mo.accordion({"Datadekningsmatrise – funksjoner og tester": _innhold})
     return
 
 
@@ -1668,27 +1759,68 @@ def dekningsmatrise_tester(lag_dekningsmatrise, lag_dekningsmatrisefigur):
 
     test_dekningsmatrise_mtm_001()
     test_dekningsmatrise_mtm_002()
-    return
+    return (
+        lag_dekningsmatrise_testinput,
+        test_dekningsmatrise_mtm_001,
+        test_dekningsmatrise_mtm_002,
+    )
 
 
 @app.cell(hide_code=True)
-def dekningsmatrise_funksjonsvisning():
-    mo.accordion(
-        {
-            "Funksjoner og tester for datadekningsmatrisen": mo.md(r"""
-    ### Implementasjon
+def maanedsgrunnlag_funksjonsvisning(
+    lag_maanedsgrunnlag,
+    lag_maanedsgrunnlag_testinput,
+    lag_maanedsgrunnlagstabell,
+    test_maanedsgrunnlag_mtm_001,
+    test_maanedsgrunnlag_mtm_002,
+    valider_maanedsgrunnlag_input,
+):
+    def _vis_kildekode(_funksjon):
+        _kildekode = textwrap.dedent(inspect.getsource(_funksjon)).strip()
+        return mo.md(f"#### `{_funksjon.__name__}`\n\n```python\n{_kildekode}\n```")
 
-    - `valider_dekningsmatrise_input`: validerer inputkontrakten.
-    - `lag_dekningsmatrise`: lager et komplett år–måned-rutenett.
-    - `lag_dekningsmatrisefigur`: bygger Altair-matrisen med øvre månedsakse.
+    _funksjoner = [
+        valider_maanedsgrunnlag_input,
+        lag_maanedsgrunnlag,
+        lag_maanedsgrunnlagstabell,
+    ]
+    _testhjelpere = [lag_maanedsgrunnlag_testinput]
+    _tester = [
+        test_maanedsgrunnlag_mtm_001,
+        test_maanedsgrunnlag_mtm_002,
+    ]
+    _innhold = mo.vstack(
+        [
+            mo.md(r"""
+    ### Funksjonsstruktur
 
-    ### Tester
+    1. `valider_maanedsgrunnlag_input` validerer inputkontrakten.
+    2. `lag_maanedsgrunnlag` aggregerer datagrunnlaget til tolv kalendermåneder.
+    3. `lag_maanedsgrunnlagstabell` bygger en formatert Great Table.
 
-    - `test_dekningsmatrise_mtm_001`: kontrollerer aggregering og tomme ruter.
-    - `test_dekningsmatrise_mtm_002`: kontrollerer rendering og øvre akse.
-    """)
-        }
+    ### Funksjoner
+    """),
+            *[_vis_kildekode(_funksjon) for _funksjon in _funksjoner],
+            mo.md(r"""
+    ### Testbeskrivelse og testmatrise
+
+    Testene kjøres reaktivt og kontrollerer månedsaggregering, individtall og
+    Great Tables-rendering.
+
+    | ID | Scenario | Forventet resultat |
+    |---|---|---|
+    | MAANEDSGRUNNLAG-MTM-001 | Data fra flere år og måneder | Tolv rader med korrekte summer, aktive datoer og år med data |
+    | MAANEDSGRUNNLAG-MTM-002 | Great Tables-rendering | Korrekte individtall, tittel og norske kolonnenavn |
+
+    ### Testgrunnlag
+    """),
+            *[_vis_kildekode(_funksjon) for _funksjon in _testhjelpere],
+            mo.md("### Tester"),
+            *[_vis_kildekode(_funksjon) for _funksjon in _tester],
+        ],
+        gap=1,
     )
+    mo.accordion({"Månedsgrunnlag – funksjoner og tester": _innhold})
     return
 
 
@@ -1974,195 +2106,11 @@ def maanedsgrunnlag_tester(lag_maanedsgrunnlag, lag_maanedsgrunnlagstabell):
 
     test_maanedsgrunnlag_mtm_001()
     test_maanedsgrunnlag_mtm_002()
-    return
-
-
-@app.cell(hide_code=True)
-def maanedsgrunnlag_funksjonsvisning():
-    mo.accordion(
-        {
-            "Funksjoner og tester for månedsgrunnlaget": mo.md(r"""
-    ### Implementasjon
-
-    - `valider_maanedsgrunnlag_input`: validerer inputkontrakten.
-    - `lag_maanedsgrunnlag`: aggregerer til én rad per måned.
-    - `lag_maanedsgrunnlagstabell`: bygger Great Table-visningen.
-
-    ### Tester
-
-    - `test_maanedsgrunnlag_mtm_001`: kontrollerer månedsaggregeringen.
-    - `test_maanedsgrunnlag_mtm_002`: kontrollerer individtall og HTML-rendering.
-    """)
-        }
-    )
-    return
-
-
-@app.cell(hide_code=True)
-def velg_sesongprofil(arter_df):
-    _artsvalg_rader = (
-        arter_df.filter((pl.col("Taksonomisk nivå") == "species") & pl.col("Observert dato").is_not_null())
-        .group_by(["Artens ID", "Art"])
-        .agg(
-            pl.col("Navn").drop_nulls().first().alias("Navn"),
-            pl.len().alias("Observasjoner"),
-        )
-        .sort(["Observasjoner", "Navn"], descending=[True, False])
-    )
-    mo.stop(
-        _artsvalg_rader.is_empty(),
-        mo.md("Ingen arter med gyldig dato er tilgjengelige for sesongprofilen."),
-    )
-
-    _artsvalg = {
-        f"{_rad['Navn'] or 'Uten norsk navn'} ({_rad['Art']}; ID {_rad['Artens ID']})": _rad["Artens ID"]
-        for _rad in _artsvalg_rader.iter_rows(named=True)
-    }
-    valgt_art_sesongprofil = mo.ui.dropdown(
-        options=_artsvalg,
-        value=next(iter(_artsvalg)),
-        searchable=True,
-        allow_select_none=False,
-        label="Velg art",
-        full_width=True,
-    )
-    valgt_metrikk_sesongprofil = mo.ui.radio(
-        options=["Observasjoner", "Individer"],
-        value="Observasjoner",
-        inline=True,
-        label="Vis sesongprofil for",
-    )
-    sesongprofil_vindu = mo.ui.slider(
-        start=1,
-        stop=31,
-        step=1,
-        value=15,
-        show_value=True,
-        include_input=True,
-        debounce=True,
-        label="Rullerende vindu (dager)",
-        full_width=True,
-    )
-
-    mo.vstack(
-        [
-            mo.md(
-                r"""
-    ## Sesongprofil gjennom året
-
-    Alle år foldes til ett kalenderår. Det øverste panelet viser den rå
-    observasjonsmengden, mens det nederste justerer for all artsrapportering i
-    samme datovindu. GT-tabellen og månedsprofilen endres ikke.
-    """
-            ),
-            valgt_art_sesongprofil,
-            mo.hstack(
-                [valgt_metrikk_sesongprofil, sesongprofil_vindu],
-                widths="equal",
-                align="start",
-                wrap=True,
-            ),
-        ],
-        gap=1,
-    )
     return (
-        sesongprofil_vindu,
-        valgt_art_sesongprofil,
-        valgt_metrikk_sesongprofil,
+        lag_maanedsgrunnlag_testinput,
+        test_maanedsgrunnlag_mtm_001,
+        test_maanedsgrunnlag_mtm_002,
     )
-
-
-@app.cell(hide_code=True)
-def vis_sesongprofil(
-    arter_df,
-    arter_df_lest_inn,
-    beregn_sesongprofil_individer,
-    beregn_sesongprofil_observasjoner,
-    sesongprofil_vindu,
-    valgt_art_sesongprofil,
-    valgt_metrikk_sesongprofil,
-):
-    mo.stop(
-        valgt_art_sesongprofil.value is None,
-        mo.md("Velg en art for å lage sesongprofilen."),
-    )
-    _tabellgrunnlag = arter_df.filter(
-        (pl.col("Taksonomisk nivå") == "species") & pl.col("Observert dato").is_not_null()
-    )
-    mo.stop(
-        _tabellgrunnlag.is_empty(),
-        mo.md("Tabellgrunnlaget inneholder ingen artsobservasjoner med gyldig dato."),
-    )
-
-    _periode_fra = _tabellgrunnlag.get_column("Observert dato").min()
-    _periode_til = _tabellgrunnlag.get_column("Observert dato").max()
-    _kommuner = _tabellgrunnlag.get_column("Kommune").drop_nulls().unique().to_list()
-    _kommuneuttrykk = pl.col("Kommune").is_in(_kommuner) if _kommuner else pl.lit(True)
-    _innsatsgrunnlag = arter_df_lest_inn.filter(
-        (pl.col("Taksonomisk nivå") == "species")
-        & pl.col("Observert dato").is_not_null()
-        & pl.col("Observert dato").is_between(_periode_fra, _periode_til, closed="both")
-        & _kommuneuttrykk
-    )
-    mo.stop(
-        _innsatsgrunnlag.is_empty(),
-        mo.callout(
-            mo.md("Det finnes ingen artsregistreringer som kan brukes som innsatsgrunnlag."),
-            kind="danger",
-            title="Mangler innsatsgrunnlag",
-        ),
-    )
-
-    _art_info = (
-        _tabellgrunnlag.filter(pl.col("Artens ID") == valgt_art_sesongprofil.value)
-        .select("Navn", "Art")
-        .unique()
-        .row(0, named=True)
-    )
-    if valgt_metrikk_sesongprofil.value == "Observasjoner":
-        _profil = beregn_sesongprofil_observasjoner(
-            _tabellgrunnlag,
-            _innsatsgrunnlag,
-            valgt_art_sesongprofil.value,
-            sesongprofil_vindu.value,
-        )
-        _enhetsforklaring = "observasjoner av arten per 1 000 artsobservasjoner"
-    else:
-        _profil = beregn_sesongprofil_individer(
-            _tabellgrunnlag,
-            _innsatsgrunnlag,
-            valgt_art_sesongprofil.value,
-            sesongprofil_vindu.value,
-        )
-        _enhetsforklaring = "individer av arten per 1 000 artsobservasjoner"
-
-    _artstekst = f"{_art_info['Navn'] or _art_info['Art']} ({_art_info['Art']})"
-    _figur = lag_sesongprofilfigur(
-        _profil,
-        valgt_metrikk_sesongprofil.value,
-        _artstekst,
-        sesongprofil_vindu.value,
-    )
-    _antall_aar = _tabellgrunnlag.get_column("Observert dato").dt.year().n_unique()
-
-    mo.vstack(
-        [
-            mo.ui.altair_chart(_figur),
-            mo.callout(
-                mo.md(
-                    f"Det øverste panelet viser et rullerende gjennomsnitt per "
-                    f"kalenderdag på tvers av **{_antall_aar} år**. Det nederste "
-                    f"viser **{_enhetsforklaring}**. En topp i nederste panel betyr "
-                    "at arten utgjør en større del av rapporteringen i perioden; "
-                    "den er ikke et direkte mål på bestand eller tetthet."
-                ),
-                kind="neutral",
-                title="Slik leses panelene",
-            ),
-        ],
-        gap=1,
-    )
-    return
 
 
 @app.cell(column=1, hide_code=True)
