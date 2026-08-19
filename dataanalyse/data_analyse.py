@@ -103,7 +103,7 @@ def artsstatistikk_dokumentasjon(
     | ARTSTABELL-MTM-005 | Tom input med riktig schema | Tom output med fast kolonnerekkefølge og riktige typer |
     | ARTSTABELL-MTM-006 | Manglende obligatorisk kolonne | Tidlig feil som nevner kolonnen |
     | ARTSTABELL-MTM-007 | Feil datatype eller ukjent kategori | Tidlig og forklarende feil |
-    | ARTSTABELL-MTM-008 | Great Tables-rendering | Verdi M1941 vises først uten tom ekstrakolonne, fargemerker er lesbare, og tabell, nanoplot, tittel og fotnoter renderes |
+    | ARTSTABELL-MTM-008 | Great Tables-rendering | Verdi M1941 vises først uten tom ekstrakolonne, Source Sans 3 og offisielle Artsdatabanken/M-1941-fargeprofiler brukes, og tabell, nanoplot, tittel og fotnoter renderes |
 
     ### Testgrunnlag
     """),
@@ -229,29 +229,31 @@ def _():
         )
     }
 
+    # Gjeldende risikokategorifarger fra Artsdatabanken.
     ARTSSTATISTIKK_KATEGORIFARGER = {
-        "RE": "#000000",
-        "CR": "#D81E05",
-        "EN": "#FC7F3F",
-        "VU": "#F9E814",
-        "NT": "#CCE226",
-        "LC": "#60C659",
-        "DD": "#D1D1C6",
-        "SE": "#A50026",
-        "HI": "#D73027",
-        "PH": "#F46D43",
-        "LO": "#FEE08B",
-        "NK": "#D9EF8B",
-        "NA": "#C1B5A5",
+        "RE": "#262F31",
+        "CR": "#D61900",
+        "EN": "#F34F39",
+        "VU": "#EB8107",
+        "NT": "#E6C000",
+        "LC": "#61A360",
+        "DD": "#6C6C6C",
+        "SE": "#4E1A53",
+        "HI": "#17467C",
+        "PH": "#286371",
+        "LO": "#7CB1AC",
+        "NK": "#D2CF84",
+        "NA": "#FFFFFF",
         "NE": "#FFFFFF",
         "Unknown": "#D9D9D9",
     }
 
+    # Offisielle HEX-koder fra M-1941, tabell 1-11.
     ARTSSTATISTIKK_M1941_FARGER = {
         "Svært stor verdi": "#AF0F0F",
         "Stor verdi": "#FD7032",
         "Middels verdi": "#FEC02D",
-        "Noe verdi": "#FFFF66",
+        "Noe verdi": "#FFFF00",
         "Ingen": "#D9D9D9",
     }
     return (
@@ -463,33 +465,27 @@ def _(
             """Velg svart eller hvit tekst med best kontrast mot bakgrunnen."""
             heks = bakgrunn.removeprefix("#")
             rgb = [int(heks[indeks : indeks + 2], 16) / 255 for indeks in (0, 2, 4)]
-            lineær_rgb = [
-                kanal / 12.92 if kanal <= 0.04045 else ((kanal + 0.055) / 1.055) ** 2.4
-                for kanal in rgb
-            ]
-            luminans = (
-                0.2126 * lineær_rgb[0] + 0.7152 * lineær_rgb[1] + 0.0722 * lineær_rgb[2]
-            )
+            lineær_rgb = [kanal / 12.92 if kanal <= 0.04045 else ((kanal + 0.055) / 1.055) ** 2.4 for kanal in rgb]
+            luminans = 0.2126 * lineær_rgb[0] + 0.7152 * lineær_rgb[1] + 0.0722 * lineær_rgb[2]
             return "#FFFFFF" if luminans < 0.179 else "#172033"
 
-        def lag_fargemerke(
-            verdi: str, fargekart: dict[str, str], *, kompakt: bool = False
-        ) -> str:
+        def lag_fargemerke(verdi: str, fargekart: dict[str, str], *, kompakt: bool = False) -> str:
             """Vis en tabellverdi som et avrundet merke med offisiell farge."""
             bakgrunn = fargekart.get(verdi, "#D9D9D9")
             tekstfarge = velg_tekstfarge(bakgrunn)
+            kantfarge = "#768083" if bakgrunn.upper() == "#FFFFFF" else bakgrunn
             minstebredde = "min-width:2.75em;" if kompakt else ""
             return (
                 '<span style="display:inline-flex;align-items:center;justify-content:center;'
                 f"{minstebredde}box-sizing:border-box;padding:0.24em 0.58em;"
                 f"background-color:{bakgrunn};color:{tekstfarge};"
-                "border:1px solid rgba(15,23,42,0.16);border-radius:999px;"
-                "box-shadow:0 1px 2px rgba(15,23,42,0.10);font-weight:600;"
+                f"border:1px solid {kantfarge};border-radius:999px;font-weight:600;"
                 f'line-height:1.2;white-space:nowrap;">{escape(str(verdi))}</span>'
             )
 
         tabell = (
             gt.GT(artsstatistikk_df, id="artsstatistikk", locale="nb")
+            .opt_table_font(font=gt.google_font("Source Sans 3"))
             .tab_header(
                 title="Artsstatistikk for valgte observasjoner",
                 subtitle=(
@@ -505,6 +501,7 @@ def _(
             .cols_label(
                 cases={
                     "Navn": "Art",
+                    "Forvaltningsinteresse": gt.html("Art av nasjonal<br>forvaltningsinteresse"),
                     "Gj.snitt individer": "Gj.snitt",
                     "År-periode": "År",
                 }
@@ -558,9 +555,7 @@ def _(
             )
             .text_transform(
                 locations=gt.loc.body(columns="Kategori"),
-                fn=lambda verdi: lag_fargemerke(
-                    verdi, ARTSSTATISTIKK_KATEGORIFARGER, kompakt=True
-                ),
+                fn=lambda verdi: lag_fargemerke(verdi, ARTSSTATISTIKK_KATEGORIFARGER, kompakt=True),
             )
             .tab_spanner(
                 label="Art og forvaltning",
@@ -888,25 +883,53 @@ def _(lag_artsstatistikk, lag_artsstatistikk_testinput):
 
 @app.cell(hide_code=True)
 def _(
+    ARTSSTATISTIKK_KATEGORIFARGER,
+    ARTSSTATISTIKK_M1941_FARGER,
     lag_artsstatistikk,
     lag_artsstatistikk_tabell,
     lag_artsstatistikk_testinput,
 ):
     def test_artsstatistikk_mtm_008():
+        forventede_kategorifarger = {
+            "RE": "#262F31",
+            "CR": "#D61900",
+            "EN": "#F34F39",
+            "VU": "#EB8107",
+            "NT": "#E6C000",
+            "LC": "#61A360",
+            "DD": "#6C6C6C",
+            "SE": "#4E1A53",
+            "HI": "#17467C",
+            "PH": "#286371",
+            "LO": "#7CB1AC",
+            "NK": "#D2CF84",
+            "NA": "#FFFFFF",
+            "NE": "#FFFFFF",
+            "Unknown": "#D9D9D9",
+        }
+        forventede_m1941_farger = {
+            "Svært stor verdi": "#AF0F0F",
+            "Stor verdi": "#FD7032",
+            "Middels verdi": "#FEC02D",
+            "Noe verdi": "#FFFF00",
+            "Ingen": "#D9D9D9",
+        }
         statistikk = lag_artsstatistikk(lag_artsstatistikk_testinput())
         tabell = lag_artsstatistikk_tabell(statistikk)
         html = tabell.as_raw_html()
 
+        assert ARTSSTATISTIKK_KATEGORIFARGER == forventede_kategorifarger
+        assert ARTSSTATISTIKK_M1941_FARGER == forventede_m1941_farger
         assert isinstance(tabell, gt.GT)
         assert "Artsstatistikk for valgte observasjoner" in html
         assert "Månedsprofil" in html
+        assert "Art av nasjonal<br>forvaltningsinteresse" in html
+        assert "Source Sans 3" in html
+        assert "background-color:#61A360" in html
+        assert "background-color:#FFFF00" in html
         assert html.index(">Verdi M1941<") < html.index(">Kategori<")
-        assert 'gt_stub">&nbsp;</th>' not in html, (
-            "Tabellen skal ikke ha en tom ekstrakolonne"
-        )
-        assert "border-radius:999px" in html, (
-            "Verdi og kategori skal renderes som fargemerker"
-        )
+        assert 'gt_stub">&nbsp;</th>' not in html, "Tabellen skal ikke ha en tom ekstrakolonne"
+        assert "border-radius:999px" in html, "Verdi og kategori skal renderes som fargemerker"
         assert "Noe verdi</span>" in html, "Hele verditeksten skal finnes i fargemerket"
         assert "<svg" in html, "Månedsprofilen skal renderes som nanoplot"
         assert "reproductive" in html
